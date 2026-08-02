@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "protocol": "bitchat",
+  "packetVersions": [1, 2],
+  "bluetooth": {
+    "mainnetServiceUuid": "f47b5e2d-4a9e-4c5a-9b3f-8e1d2c3a4b5c",
+    "testnetServiceUuid": "f47b5e2d-4a9e-4c5a-9b3f-8e1d2c3a4b5a",
+    "characteristicUuid": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+    "defaultTtl": 7,
+    "fragmentChunkBytes": 440
+  },
+  "messageTypes": {
+    "announce": 1,
+    "message": 2,
+    "leave": 3,
+    "courierEnvelope": 4,
+    "noiseHandshake": 16,
+    "noiseEncrypted": 17,
+    "fragment": 32,
+    "requestSync": 33,
+    "fileTransfer": 34,
+    "boardPost": 35,
+    "prekeyBundle": 36,
+    "groupMessage": 37,
+    "ping": 38,
+    "pong": 39,
+    "nostrCarrier": 40,
+    "voiceFrame": 41
+  },
+  "noise": {
+    "protocolName": "Noise_XX_25519_ChaChaPoly_SHA256",
+    "payloadTypes": {
+      "privateMessage": 1,
+      "readReceipt": 2,
+      "delivered": 3,
+      "groupInvite": 6,
+      "groupKeyUpdate": 7,
+      "voiceFrame": 8,
+      "verifyChallenge": 16,
+      "verifyResponse": 17,
+      "vouch": 18,
+      "privateFile": 32,
+      "authenticatedPeerState": 33
+    },
+    "decodeAliases": {
+      "privateFile": [9]
+    }
+  },
+  "fileTransfer": {
+    "maximumPayloadBytes": 1048576,
+    "maximumImageBytes": 524288,
+    "maximumVoiceNoteBytes": 524288
+  },
+  "nostr": {
+    "publicMessageKind": 20000,
+    "publicEphemeralKind": 20001,
+    "privateRumorKind": 14,
+    "privateSealKind": 13,
+    "privateGiftWrapKind": 1059,
+    "privateEnvelopePrefix": "v2:"
+  }
+}

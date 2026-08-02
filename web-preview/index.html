@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="fr" data-theme="glass" data-mode="dark">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" content="#080b12">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+    <title>bitchat — aperçu web</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <svg class="svg-sprite" aria-hidden="true">
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="m14.5 4 5.5 5.5-3 1.2-3.7 3.7-.2 4.1-1 1-3.3-5.2L4 11l1-1 4.1-.2 3.7-3.7L14.5 4Z"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 20v-1.6c0-2.2-1.8-4-4-4H7c-2.2 0-4 1.8-4 4V20M9.5 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM16 4.2a3.4 3.4 0 0 1 0 6.6M17.5 14.7c2 .5 3.5 1.9 3.5 3.7V20"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8 8 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+      <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m8.5 12.8 6.8-6.8a3 3 0 0 1 4.2 4.2l-8.8 8.7a5 5 0 0 1-7-7l8.4-8.4M7.1 15.6l8.4-8.4"/></symbol>
+      <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l-2-.6a7.4 7.4 0 0 0-.7-1.6l1-1.9-2.1-2.1-1.9 1a7.4 7.4 0 0 0-1.6-.7L10.5 3h-3l-.6 2a7.4 7.4 0 0 0-1.6.7l-1.9-1-2.1 2.1 1 1.9a7.4 7.4 0 0 0-.7 1.6L0 10.5v3l2 .6a7.4 7.4 0 0 0 .7 1.6l-1 1.9 2.1 2.1 1.9-1a7.4 7.4 0 0 0 1.6.7l.6 2h3l.6-2a7.4 7.4 0 0 0 1.6-.7l1.9 1 2.1-2.1-1-1.9a7.4 7.4 0 0 0 .7-1.6l2.2-.6Z" transform="translate(1.5) scale(.9)"/></symbol>
+      <symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.5 5.5a9 9 0 0 0 0 13M18.5 5.5a9 9 0 0 1 0 13"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 10h.01M15.5 10h.01M8.5 14.5a5 5 0 0 0 7 0"/></symbol>
+      <symbol id="i-reply" viewBox="0 0 24 24"><path d="m9 7-5 5 5 5M5 12h8c4 0 7 2 7 6"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+      <symbol id="i-hash" viewBox="0 0 24 24"><path d="M10 3 8 21M16 3l-2 18M4 9h16M3 15h16"/></symbol>
+      <symbol id="i-checks" viewBox="0 0 24 24"><path d="m2 13 4 4L16 7M10 15l2 2L22 7"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></symbol>
+      <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 17 4.5-4 3.5 3 2.5-2 5.5 4"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 8h18c0-1-3-1-3-8ZM10 21h4"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.8 3 8 7.5 9.5 4.5-1.5 7.5-4.7 7.5-9.5V6L12 3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></symbol>
+      <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></symbol>
+      <symbol id="i-qr" viewBox="0 0 24 24"><path d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm11 0h2v2h-2v-2Zm3 0h2v3h-2v-3Zm-4 4h3v2h-3v-2Zm4 1h2v1h-2v-1Z"/></symbol>
+    </svg>
+
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+    <div class="app-shell" id="appShell">
+      <div class="mobile-backdrop" id="mobileBackdrop"></div>
+
+      <aside class="sidebar" id="sidebar" aria-label="Conversations">
+        <div class="sidebar-top">
+          <button class="wordmark" id="infoButton" type="button" aria-label="À propos de bitchat">
+            <span>bitchat/</span>
+            <span class="preview-tag">web</span>
+          </button>
+          <button class="icon-button compact" id="settingsButton" type="button" aria-label="Réglages">
+            <svg class="icon"><use href="#i-settings"></use></svg>
+          </button>
+        </div>
+
+        <label class="search-box">
+          <svg class="icon"><use href="#i-search"></use></svg>
+          <input id="conversationSearch" type="search" placeholder="Rechercher" autocomplete="off">
+          <kbd>Ctrl K</kbd>
+        </label>
+
+        <nav class="conversation-nav" id="conversationNav" aria-live="polite">
+          <div class="nav-loading">
+            <span></span><span></span><span></span>
+            Connexion au serveur local…
+          </div>
+        </nav>
+
+        <div class="mesh-status-card">
+          <div class="mesh-orbit" aria-hidden="true">
+            <span class="orbit-ring"></span>
+            <span class="orbit-core"></span>
+            <span class="orbit-peer peer-a"></span>
+            <span class="orbit-peer peer-b"></span>
+            <span class="orbit-peer peer-c"></span>
+          </div>
+          <div>
+            <strong id="meshStatusTitle">Serveur local</strong>
+            <span id="meshStatusDetail">Connexion en cours…</span>
+          </div>
+          <span class="status-pill" id="meshStatusPill">local</span>
+        </div>
+
+        <button class="profile-button" id="profileButton" type="button">
+          <span class="avatar avatar-blue" id="profileInitials">AN<span class="presence online"></span></span>
+          <span class="profile-copy">
+            <strong id="profileNickname">@anonymous</strong>
+            <span>Identité locale</span>
+          </span>
+          <svg class="icon"><use href="#i-chevron"></use></svg>
+        </button>
+      </aside>
+
+      <main class="chat-panel">
+        <header class="chat-header glass-panel">
+          <button class="icon-button mobile-only" id="menuButton" type="button" aria-label="Ouvrir les conversations">
+            <svg class="icon"><use href="#i-menu"></use></svg>
+          </button>
+          <button class="channel-identity" id="channelPickerButton" type="button">
+            <span class="channel-symbol" id="headerSymbol"><svg class="icon"><use href="#i-radio"></use></svg></span>
+            <span class="channel-copy">
+              <strong id="headerTitle">#mesh</strong>
+              <span id="headerSubtitle">Connexion au serveur local…</span>
+            </span>
+            <svg class="icon channel-chevron"><use href="#i-chevron"></use></svg>
+          </button>
+
+          <div class="header-actions">
+            <span class="simulation-chip desktop-only" id="connectionChip"><span></span><b id="connectionLabel">connexion…</b></span>
+            <button class="icon-button" id="verificationButton" type="button" aria-label="Afficher ou scanner un code QR d’identité">
+              <svg class="icon"><use href="#i-qr"></use></svg>
+            </button>
+            <button class="icon-button" id="noticesButton" type="button" aria-label="Avis épinglés">
+              <svg class="icon"><use href="#i-pin"></use></svg>
+              <span class="notification-dot"></span>
+            </button>
+            <button class="icon-button" id="peopleButton" type="button" aria-label="Afficher les personnes">
+              <svg class="icon"><use href="#i-users"></use></svg>
+            <span class="action-count" id="peopleCount">1</span>
+            </button>
+            <button class="icon-button desktop-only" id="modeButton" type="button" aria-label="Changer l’apparence">
+              <svg class="icon mode-icon"><use href="#i-sun"></use></svg>
+            </button>
+          </div>
+        </header>
+
+        <section class="message-stage" id="messageStage" aria-label="Messages">
+          <div class="channel-backdrop-mark" aria-hidden="true">
+            <svg class="icon"><use href="#i-radio"></use></svg>
+          </div>
+          <div class="message-list" id="messageList"></div>
+          <button class="jump-button" id="jumpButton" type="button" aria-label="Aller aux nouveaux messages">
+            <svg class="icon"><use href="#i-chevron"></use></svg>
+            <span>nouveaux</span>
+          </button>
+        </section>
+
+        <footer class="composer-wrap">
+          <div class="reply-preview" id="replyPreview">
+            <span class="reply-bar"></span>
+            <span class="reply-copy">
+              <strong id="replyAuthor">Répondre</strong>
+              <span id="replyText"></span>
+            </span>
+            <button class="icon-button compact" id="cancelReplyButton" type="button" aria-label="Annuler la réponse">
+              <svg class="icon"><use href="#i-close"></use></svg>
+            </button>
+          </div>
+
+          <div class="recording-preview" id="recordingPreview">
+            <span class="recording-pulse"></span>
+            <strong id="recordingTime">0:00</strong>
+            <div class="recording-wave" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <span>Cliquez sur stop pour envoyer</span>
+          </div>
+
+          <form class="composer glass-panel" id="composerForm">
+            <button class="icon-button composer-button" id="attachButton" type="button" aria-label="Joindre une image">
+              <svg class="icon"><use href="#i-paperclip"></use></svg>
+            </button>
+            <input id="fileInput" type="file" hidden>
+            <textarea id="messageInput" rows="1" maxlength="2000" placeholder="Message dans #mesh" aria-label="Votre message"></textarea>
+            <button class="icon-button composer-button desktop-only" id="emojiButton" type="button" aria-label="Ajouter un emoji">
+              <svg class="icon"><use href="#i-smile"></use></svg>
+            </button>
+            <button class="send-button" id="sendButton" type="submit" aria-label="Enregistrer un message vocal">
+              <svg class="icon send-icon"><use href="#i-send"></use></svg>
+              <svg class="icon mic-icon"><use href="#i-mic"></use></svg>
+              <svg class="icon stop-icon"><use href="#i-stop"></use></svg>
+            </button>
+          </form>
+          <p class="composer-hint" id="composerHint">
+            <svg class="icon"><use href="#i-radio"></use></svg>
+            Les messages circulent entre les fenêtres connectées à ce serveur local.
+          </p>
+        </footer>
+      </main>
+
+      <aside class="details-panel" id="detailsPanel" aria-label="Personnes connectées">
+        <div class="details-header">
+          <div>
+            <span class="eyebrow">À portée</span>
+            <h2>Personnes</h2>
+          </div>
+          <button class="icon-button compact" id="closeDetailsButton" type="button" aria-label="Fermer">
+            <svg class="icon"><use href="#i-close"></use></svg>
+          </button>
+        </div>
+        <div class="range-summary">
+          <div class="range-radar" aria-hidden="true">
+            <span></span><span></span><span></span><i></i>
+          </div>
+          <div>
+            <strong id="rangeSummaryTitle">1 participant connecté</strong>
+            <span id="rangeSummaryDetail">Présence locale en temps réel</span>
+          </div>
+        </div>
+        <div class="people-filter" role="tablist" aria-label="Filtrer les personnes">
+          <button class="active" type="button" data-filter="all">Toutes</button>
+          <button type="button" data-filter="favorites">Favoris</button>
+        </div>
+        <div class="people-list" id="peopleList"></div>
+        <div class="privacy-note">
+          <svg class="icon"><use href="#i-shield"></use></svg>
+          <p><strong>Identités locales</strong><span>Aucun numéro de téléphone ni carnet d’adresses.</span></p>
+        </div>
+      </aside>
+    </div>
+
+    <div class="modal-layer" id="modalLayer" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-card" id="modalCard" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-header">
+          <div>
+            <span class="eyebrow" id="modalEyebrow">bitchat</span>
+            <h2 id="modalTitle">Réglages</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Fermer">
+            <svg class="icon"><use href="#i-close"></use></svg>
+          </button>
+        </div>
+        <div class="modal-content" id="modalContent"></div>
+      </section>
+    </div>
+
+    <div class="emoji-popover" id="emojiPopover" aria-hidden="true">
+      <button type="button">👍</button><button type="button">❤️</button><button type="button">😂</button>
+      <button type="button">🔥</button><button type="button">✅</button><button type="button">👋</button>
+      <button type="button">📡</button><button type="button">🔒</button>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite">
+      <svg class="icon"><use href="#i-checks"></use></svg>
+      <span id="toastText">Action terminée</span>
+    </div>
+
+    <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+    <script type="module" src="./dist/app.js"></script>
+  </body>
+</html>
