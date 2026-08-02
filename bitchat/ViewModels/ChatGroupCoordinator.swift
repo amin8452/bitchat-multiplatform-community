@@ -336,7 +336,17 @@ final class ChatGroupCoordinator {
     /// Fire-and-flood send: local echo goes straight to `.sent` because group
     /// messages have no per-member acknowledgments in v1.
     func sendGroupMessage(_ content: String, to groupPeerID: PeerID) {
-        guard !content.isEmpty, content.count <= InputValidator.Limits.maxMessageLength else { return }
+        guard let content = InputValidator.validateGroupMessage(content) else {
+            context.addLocalPrivateSystemMessage(
+                String(
+                    localized: "system.message.group_too_large",
+                    defaultValue: "group messages are limited to 60,000 UTF-8 bytes.",
+                    comment: "Error shown when a group message exceeds the encrypted group wire-format byte limit"
+                ),
+                to: groupPeerID
+            )
+            return
+        }
         guard let group = context.groupStore.group(for: groupPeerID),
               let key = context.groupStore.key(forGroupID: group.groupID) else {
             // The person is inside the group thread; the error belongs there,

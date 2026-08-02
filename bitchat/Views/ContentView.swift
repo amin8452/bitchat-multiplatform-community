@@ -92,9 +92,6 @@ struct ContentView: View {
     @EnvironmentObject private var conversationUIModel: ConversationUIModel
     @EnvironmentObject private var locationChannelsModel: LocationChannelsModel
     @EnvironmentObject private var sharedContentImportModel: SharedContentImportModel
-    @EnvironmentObject private var peerListModel: PeerListModel
-    @EnvironmentObject private var publicChatModel: PublicChatModel
-    @EnvironmentObject private var privateInboxModel: PrivateInboxModel
 
     @StateObject private var voiceRecordingVM = VoiceRecordingViewModel()
     @State private var messageText = ""
@@ -117,7 +114,7 @@ struct ContentView: View {
     #else
     @State private var showMacImagePicker = false
     #endif
-    @ScaledMetric(relativeTo: .body) private var headerHeight: CGFloat = 44
+    @ScaledMetric(relativeTo: .body) private var headerHeight: CGFloat = 52
     @ScaledMetric(relativeTo: .subheadline) private var headerPeerIconSize: CGFloat = 11
     @ScaledMetric(relativeTo: .subheadline) private var headerPeerCountFontSize: CGFloat = 12
     @State private var windowCountPublic: Int = 300
@@ -300,17 +297,6 @@ struct ContentView: View {
                 showImagePicker: $showImagePicker,
                 imagePickerSourceType: $imagePickerSourceType
             )
-            // Sheets + NavigationStack can drop inherited EnvironmentObjects on
-            // some iOS versions (#1558). Re-inject every model the sheet tree
-            // reads so ContentPeopleListView / MessageListView never crash.
-            .environmentObject(appChromeModel)
-            .environmentObject(privateConversationModel)
-            .environmentObject(verificationModel)
-            .environmentObject(conversationUIModel)
-            .environmentObject(locationChannelsModel)
-            .environmentObject(peerListModel)
-            .environmentObject(publicChatModel)
-            .environmentObject(privateInboxModel)
             #else
             ContentPeopleSheetView(
                 showSidebar: $showSidebar,
@@ -328,14 +314,6 @@ struct ContentView: View {
                 onSendMessage: sendMessage,
                 showMacImagePicker: $showMacImagePicker
             )
-            .environmentObject(appChromeModel)
-            .environmentObject(privateConversationModel)
-            .environmentObject(verificationModel)
-            .environmentObject(conversationUIModel)
-            .environmentObject(locationChannelsModel)
-            .environmentObject(peerListModel)
-            .environmentObject(publicChatModel)
-            .environmentObject(privateInboxModel)
             #endif
         }
         .sheet(isPresented: $appChromeModel.isAppInfoPresented) {
@@ -540,10 +518,8 @@ struct ContentView: View {
     private func sendMessage() {
         guard let trimmed = messageText.trimmedOrNilIfEmpty else { return }
 
-        messageText = ""
-
-        DispatchQueue.main.async {
-            self.conversationUIModel.sendMessage(trimmed)
+        if conversationUIModel.sendMessage(trimmed) {
+            messageText = ""
         }
     }
 }

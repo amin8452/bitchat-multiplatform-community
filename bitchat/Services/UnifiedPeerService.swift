@@ -236,11 +236,8 @@ final class UnifiedPeerService: ObservableObject, TransportPeerEventsDelegate {
     
     /// Get peer ID for nickname
     func getPeerID(for nickname: String) -> PeerID? {
-        // Normalize both sides: the query may come from typed content and
-        // stored names may predate NFC-at-ingest (e.g. persisted favorites).
-        let target = nickname.normalizedNickname
         for peer in peers {
-            if peer.displayName.normalizedNickname == target || peer.nickname.normalizedNickname == target {
+            if peer.displayName == nickname || peer.nickname == nickname {
                 return peer.peerID
             }
         }

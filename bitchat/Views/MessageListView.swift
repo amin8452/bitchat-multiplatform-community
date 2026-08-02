@@ -163,7 +163,7 @@ struct MessageListView: View {
                                 }
                             }
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 1)
+                            .padding(.vertical, theme.usesGlassChrome ? 3 : 1)
                             // Archived echoes read as one tinted block, not
                             // just faded rows.
                             .background(message.isArchivedEcho ? palette.secondary.opacity(0.08) : Color.clear)
@@ -391,12 +391,24 @@ private extension MessageListView {
     }
 
     func emptyStateLine(_ text: String) -> some View {
-        // Non-breaking space before the closing asterisk so a tight wrap
-        // can't orphan a lone "*" onto its own line.
-        Text(verbatim: "* \(text)\u{00A0}*")
-            .bitchatFont(size: 13)
-            .foregroundColor(palette.secondary.opacity(0.9))
-            .fixedSize(horizontal: false, vertical: true)
+        Group {
+            if theme.usesGlassChrome {
+                Text(verbatim: text)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(palette.primary.opacity(colorScheme == .dark ? 0.07 : 0.045))
+                    )
+            } else {
+                // Non-breaking space before the closing asterisk so a tight
+                // wrap cannot orphan a lone terminal marker.
+                Text(verbatim: "* \(text)\u{00A0}*")
+            }
+        }
+        .bitchatFont(size: 13)
+        .foregroundColor(palette.secondary.opacity(0.9))
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     /// Messages the unseen counters may book as "new": rows that render as
@@ -430,7 +442,7 @@ private extension MessageListView {
         guard message.isPrivate,
               conversationUIModel.isSentByCurrentUser(message),
               conversationUIModel.mediaAttachment(for: message) == nil,
-              case .failed = message.deliveryStatus
+              case .some(.failed) = message.deliveryStatus
         else { return false }
         return true
     }
@@ -511,9 +523,22 @@ private extension MessageListView {
 
     @ViewBuilder
     func systemMessageRow(_ message: BitchatMessage) -> some View {
-        Text(conversationUIModel.formatMessage(message, colorScheme: colorScheme, theme: theme))
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        if theme.usesGlassChrome {
+            Text(conversationUIModel.formatMessage(message, colorScheme: colorScheme, theme: theme))
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(palette.primary.opacity(colorScheme == .dark ? 0.08 : 0.05))
+                )
+                .frame(maxWidth: .infinity, alignment: .center)
+        } else {
+            Text(conversationUIModel.formatMessage(message, colorScheme: colorScheme, theme: theme))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     func expandWindow(ifNeededFor message: BitchatMessage,

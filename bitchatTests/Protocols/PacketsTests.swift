@@ -187,6 +187,23 @@ struct PacketsTests {
         #expect(PrivateMessagePacket.decode(from: truncated) == nil)
     }
 
+    @Test
+    func privateMessagePacketEnforcesDeployedUTF8ByteBoundary() throws {
+        let acceptedASCII = String(repeating: "a", count: 255)
+        let acceptedPacket = PrivateMessagePacket(messageID: "pm-255", content: acceptedASCII)
+        let acceptedData = try #require(acceptedPacket.encode())
+        #expect(PrivateMessagePacket.decode(from: acceptedData)?.content == acceptedASCII)
+
+        #expect(PrivateMessagePacket(
+            messageID: "pm-256",
+            content: String(repeating: "a", count: 256)
+        ).encode() == nil)
+        #expect(PrivateMessagePacket(
+            messageID: "pm-unicode",
+            content: String(repeating: "😀", count: 64)
+        ).encode() == nil)
+    }
+
     private func makeTLV(type: UInt8, value: Data) -> Data {
         var data = Data([type, UInt8(value.count)])
         data.append(value)

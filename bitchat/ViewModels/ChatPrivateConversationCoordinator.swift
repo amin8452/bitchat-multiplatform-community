@@ -315,7 +315,17 @@ final class ChatPrivateConversationCoordinator {
     }
 
     func sendPrivateMessage(_ content: String, to peerID: PeerID) {
-        guard !content.isEmpty else { return }
+        guard let content = InputValidator.validatePrivateMessage(content) else {
+            context.addLocalPrivateSystemMessage(
+                String(
+                    localized: "system.message.private_too_large",
+                    defaultValue: "private messages are limited to 255 UTF-8 bytes.",
+                    comment: "Error shown when a private message exceeds the deployed wire-format byte limit"
+                ),
+                to: peerID
+            )
+            return
+        }
 
         if context.isPeerBlocked(peerID) {
             let nickname = context.peerNickname(for: peerID) ?? "anon"

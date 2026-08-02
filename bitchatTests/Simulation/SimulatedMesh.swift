@@ -32,16 +32,6 @@ final class SimulatedMesh {
 
     private(set) var nodes: [Node] = []
     private var neighbors: [Set<Int>] = []
-    private var duplicateLinkEdges: Set<String> = []
-    private var emitted: [[BitchatPacket]] = []
-
-    /// Every packet a node has put on the wire — the attacker's capture
-    /// buffer for replay tests.
-    func emittedPackets(from index: Int) -> [BitchatPacket] {
-        lock.lock()
-        defer { lock.unlock() }
-        return emitted[index]
-    }
 
     @discardableResult
     func addNode(nickname: String) -> Node {
@@ -58,29 +48,17 @@ final class SimulatedMesh {
         )
         let index = nodes.count
         let node = Node(service: service, scheduler: scheduler)
-        // An earlier node's engine can fire its tap (which reads `emitted`
-        // under the lock) while this append reallocates the array.
-        lock.lock()
         nodes.append(node)
         neighbors.append([])
-        emitted.append([])
-        lock.unlock()
-        // The tap must be live before `setNickname` below: setNickname
-        // force-announces asynchronously on the engine, and if that slot
-        // ran in the gap before a later tap install, the announce was
-        // emitted invisibly while still stamping the wall-clock announce
-        // throttle — swallowing `announceAll`'s forced announce on a
-        // starved runner (the CI flake this ordering fixes).
+        service.setNickname(nickname)
         service._test_onOutboundPacket = { [weak self] packet in
             // Runs on the sender's engine; only buffer here — delivering
             // inline would nest one engine inside another.
             guard let self else { return }
             self.lock.lock()
             self.pendingDeliveries.append((from: index, packet: packet))
-            self.emitted[index].append(packet)
             self.lock.unlock()
         }
-        service.setNickname(nickname)
         return node
     }
 
@@ -89,54 +67,10 @@ final class SimulatedMesh {
         neighbors[b].insert(a)
     }
 
-    /// Radio silence: stops delivering between two nodes without reporting
-    /// any link event, so existing bindings persist exactly as they do when
-    /// a peer walks out of range before its link times out. Lets a test
-    /// capture a packet the far side never received.
-    func silence(_ a: Int, _ b: Int) {
-        neighbors[a].remove(b)
-        neighbors[b].remove(a)
-    }
-
-    /// Models two live links to the same phone (issue #1538): every frame
-    /// from the neighbour arrives twice, on two link IDs that both bind to
-    /// the sender.
-    ///
-    /// Both are central links — the remote's connections to our peripheral
-    /// role. That is deliberate and faithful to the defect: central links
-    /// are the ones we cannot cancel (they belong to the remote), so they
-    /// are exactly the links the peripheral-cancel path cannot reach after
-    /// a rotation. Peripheral-role bindings additionally require physical
-    /// link state keyed by a real CBPeripheral, which no CB-free harness
-    /// can fabricate.
-    func connectDuplicateLinks(_ a: Int, _ b: Int) {
-        connect(a, b)
-        duplicateLinkEdges.insert(Self.edgeKey(a, b))
-    }
-
-    /// The synthetic central link a frame from `sender` arrives on at
-    /// `receiver`. Stable per directed edge, like a CoreBluetooth central
-    /// UUID.
+    /// The synthetic link a frame from `sender` arrives on at `receiver`.
+    /// Stable per directed edge, like a CoreBluetooth central UUID.
     func linkUUID(from sender: Int, at receiver: Int) -> String {
         "SIM-\(sender)-TO-\(receiver)"
-    }
-
-    /// Order-independent edge key.
-    private static func edgeKey(_ a: Int, _ b: Int) -> String {
-        "\(min(a, b))-\(max(a, b))"
-    }
-
-    /// The second link of a duplicate-link edge.
-    func duplicateLinkUUID(from sender: Int, at receiver: Int) -> String {
-        "SIM-DUP-\(sender)-TO-\(receiver)"
-    }
-
-    private func links(from sender: Int, at receiver: Int) -> [BLEIngressLinkID] {
-        var links: [BLEIngressLinkID] = [.central(linkUUID(from: sender, at: receiver))]
-        if duplicateLinkEdges.contains(Self.edgeKey(sender, receiver)) {
-            links.append(.central(duplicateLinkUUID(from: sender, at: receiver)))
-        }
-        return links
     }
 
     func forceAnnounce(from index: Int) {
@@ -166,10 +100,11 @@ final class SimulatedMesh {
 
             for (from, packet) in batch {
                 for receiver in neighbors[from] {
-                    for link in links(from: from, at: receiver) {
-                        deliveredFrameCount += 1
-                        nodes[receiver].service._test_ingestFrame(packet, link: link)
-                    }
+                    deliveredFrameCount += 1
+                    nodes[receiver].service._test_ingestFrame(
+                        packet,
+                        link: .central(linkUUID(from: from, at: receiver))
+                    )
                 }
             }
             nodes.forEach { $0.service._test_fenceEngine() }
@@ -185,16 +120,8 @@ final class SimulatedMesh {
     }
 
     /// Full discovery round: every node announces, traffic settles.
-    ///
-    /// Resets each node's announce throttle first: the throttle window is
-    /// wall-clock, so any announce that already ran (setNickname's, in
-    /// `addNode`) would otherwise swallow this forced one whenever the two
-    /// land within the forced minimum interval — which is always, on any
-    /// runner. `forceAnnounce(from:)` deliberately does NOT reset — the
-    /// panic-rotation tests pin the production reset behavior through it.
     func announceAll() {
         for node in nodes {
-            node.service._test_resetAnnounceThrottle()
             node.service._test_forceAnnounce()
         }
         pump()

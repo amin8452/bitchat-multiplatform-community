@@ -353,11 +353,7 @@ final class ChatLiveVoiceCoordinator {
         // Eviction skips voice_live_* names, so partials still streaming in
         // are safe no matter which caller triggers enforcement.
         fileStore.enforceQuota(reservingBytes: TransportConfig.pttMaxBurstBytes)
-        fileManager.createFile(
-            atPath: fileURL.path,
-            contents: nil,
-            attributes: BLEIncomingFileStore.mediaProtectionAttributes
-        )
+        fileManager.createFile(atPath: fileURL.path, contents: nil)
         guard let handle = try? FileHandle(forWritingTo: fileURL) else {
             SecureLogger.error("PTT: cannot open capture file for burst \(burstID.hexEncodedString())", category: .session)
             try? fileManager.removeItem(at: fileURL)

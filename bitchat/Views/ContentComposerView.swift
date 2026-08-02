@@ -57,7 +57,7 @@ struct ContentComposerView: View {
                 recordingIndicator
             }
 
-            HStack(alignment: .center, spacing: 4) {
+            HStack(alignment: .center, spacing: theme.usesGlassChrome ? 8 : 4) {
                 TextField(
                     "",
                     text: $messageText,
@@ -81,8 +81,8 @@ struct ContentComposerView: View {
                     // dismissed keyboard, so it stays out of this.
                     isTextFieldFocused.wrappedValue = true
                 }
-                .padding(.vertical, theme.usesGlassChrome ? 8 : 4)
-                .padding(.horizontal, 6)
+                .padding(.vertical, theme.usesGlassChrome ? 11 : 4)
+                .padding(.horizontal, theme.usesGlassChrome ? 12 : 6)
                 .themedInputBackground()
                 .modifier(FocusEffectDisabledModifier())
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -96,7 +96,7 @@ struct ContentComposerView: View {
                     }
                 }
 
-                HStack(alignment: .center, spacing: 4) {
+                HStack(alignment: .center, spacing: theme.usesGlassChrome ? 6 : 4) {
                     if showsNearbyOnlyToggle {
                         nearbyOnlyToggle
                     }
@@ -109,9 +109,9 @@ struct ContentComposerView: View {
                 }
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, theme.usesGlassChrome ? 10 : 6)
         .padding(.top, theme.usesGlassChrome ? 8 : 6)
-        .padding(.bottom, 8)
+        .padding(.bottom, theme.usesGlassChrome ? 10 : 8)
         .themedChromePanel(edge: .bottom)
         .onDisappear {
             autocompleteDebounceTimer?.invalidate()
@@ -137,10 +137,15 @@ private extension ContentComposerView {
     var nearbyOnlyToggle: some View {
         Button(action: { bridgeService.nearbyOnly.toggle() }) {
             Image(systemName: bridgeService.nearbyOnly ? "antenna.radiowaves.left.and.right" : "network")
-                .font(.bitchatSystem(size: 16))
+                .font(.bitchatSystem(size: theme.usesGlassChrome ? 15 : 16, weight: .semibold))
                 .foregroundColor(bridgeService.nearbyOnly ? palette.secondary : Color.cyan.opacity(0.9))
-                .frame(width: 28, height: 28)
-                .contentShape(Rectangle())
+                .frame(width: theme.usesGlassChrome ? 44 : 28, height: theme.usesGlassChrome ? 44 : 28)
+                .background {
+                    if theme.usesGlassChrome {
+                        Circle().fill(palette.primary.opacity(0.07))
+                    }
+                }
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
@@ -229,10 +234,15 @@ private extension ContentComposerView {
 
     var attachmentButton: some View {
         #if os(iOS)
-        Image(systemName: "camera.circle.fill")
-            .font(.bitchatSystem(size: 24))
+        Image(systemName: theme.usesGlassChrome ? "camera.fill" : "camera.circle.fill")
+            .font(.bitchatSystem(size: theme.usesGlassChrome ? 20 : 24))
             .foregroundColor(composerAccentColor)
-            .frame(width: 36, height: 36)
+            .frame(width: theme.usesGlassChrome ? 44 : 36, height: theme.usesGlassChrome ? 44 : 36)
+            .background {
+                if theme.usesGlassChrome {
+                    Circle().fill(palette.primary.opacity(0.07))
+                }
+            }
             .contentShape(Circle())
             .onTapGesture {
                 imagePickerSourceType = .photoLibrary
@@ -257,10 +267,15 @@ private extension ContentComposerView {
             }
         #else
         Button(action: { showMacImagePicker = true }) {
-            Image(systemName: "photo.circle.fill")
-                .font(.bitchatSystem(size: 24))
+            Image(systemName: theme.usesGlassChrome ? "photo.fill" : "photo.circle.fill")
+                .font(.bitchatSystem(size: theme.usesGlassChrome ? 20 : 24))
                 .foregroundColor(composerAccentColor)
-                .frame(width: 36, height: 36)
+                .frame(width: theme.usesGlassChrome ? 44 : 36, height: theme.usesGlassChrome ? 44 : 36)
+                .background {
+                    if theme.usesGlassChrome {
+                        Circle().fill(palette.primary.opacity(0.07))
+                    }
+                }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
@@ -281,10 +296,11 @@ private extension ContentComposerView {
                     .opacity(hasText ? 1 : 0)
                     .allowsHitTesting(hasText)
             }
-            .frame(width: 36, height: 36)
+            .frame(width: theme.usesGlassChrome ? 44 : 36, height: theme.usesGlassChrome ? 44 : 36)
+            .animation(.easeInOut(duration: 0.16), value: hasText)
         } else {
             sendButtonView(enabled: hasText)
-                .frame(width: 36, height: 36)
+                .frame(width: theme.usesGlassChrome ? 44 : 36, height: theme.usesGlassChrome ? 44 : 36)
         }
     }
 
@@ -306,11 +322,16 @@ private extension ContentComposerView {
     }
 
     var micButtonView: some View {
-        Image(systemName: "mic.circle.fill")
-            .font(.bitchatSystem(size: 24))
+        Image(systemName: theme.usesGlassChrome ? "mic.fill" : "mic.circle.fill")
+            .font(.bitchatSystem(size: theme.usesGlassChrome ? 20 : 24))
             .foregroundColor(micColor)
             .modifier(PulsingOpacityModifier(active: busyTalker != nil && !voiceRecordingVM.state.isActive))
-            .frame(width: 36, height: 36)
+            .frame(width: theme.usesGlassChrome ? 44 : 36, height: theme.usesGlassChrome ? 44 : 36)
+            .background {
+                if theme.usesGlassChrome {
+                    Circle().fill(palette.primary.opacity(0.07))
+                }
+            }
             .contentShape(Circle())
             .overlay(
                 Color.clear
@@ -357,10 +378,19 @@ private extension ContentComposerView {
     func sendButtonView(enabled: Bool) -> some View {
         let activeColor = composerAccentColor
         return Button(action: onSendMessage) {
-            Image(systemName: "arrow.up.circle.fill")
-                .font(.bitchatSystem(size: 24))
-                .foregroundColor(enabled ? activeColor : Color.gray)
-                .frame(width: 36, height: 36)
+            Image(systemName: theme.usesGlassChrome ? "arrow.up" : "arrow.up.circle.fill")
+                .font(.bitchatSystem(size: theme.usesGlassChrome ? 17 : 24, weight: .bold))
+                .foregroundColor(
+                    theme.usesGlassChrome
+                        ? Color.white.opacity(enabled ? 1 : 0.75)
+                        : (enabled ? activeColor : Color.gray)
+                )
+                .frame(width: theme.usesGlassChrome ? 44 : 36, height: theme.usesGlassChrome ? 44 : 36)
+                .background {
+                    if theme.usesGlassChrome {
+                        Circle().fill(enabled ? activeColor : palette.secondary.opacity(0.28))
+                    }
+                }
         }
         .buttonStyle(.plain)
         .disabled(!enabled)

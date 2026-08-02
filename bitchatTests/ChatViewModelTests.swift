@@ -689,6 +689,33 @@ struct ChatViewModelFormattingTests {
 
         #expect(String(header.characters) == "<@Alice#a1b2> ")
     }
+
+    @Test @MainActor
+    func liquidGlassFormattingUsesBubbleFriendlyLabels() {
+        let (viewModel, _) = makeTestableViewModel()
+        let message = BitchatMessage(
+            id: "fmt-modern",
+            sender: "Alice#a1b2",
+            content: "hello",
+            timestamp: Date(timeIntervalSince1970: 1_700_010_456),
+            isRelay: false,
+            senderPeerID: PeerID(str: "00000000000000b4")
+        )
+
+        let formatted = viewModel.formatMessageAsText(
+            message,
+            colorScheme: .light,
+            theme: .liquidGlass
+        )
+        let header = viewModel.formatMessageHeader(
+            message,
+            colorScheme: .light,
+            theme: .liquidGlass
+        )
+
+        #expect(String(formatted.characters) == "Alice#a1b2\nhello [\(message.formattedTimestamp)]")
+        #expect(String(header.characters) == "Alice#a1b2")
+    }
 }
 
 // MARK: - Verification Tests

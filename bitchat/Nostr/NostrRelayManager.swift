@@ -153,18 +153,14 @@ final class NostrRelayManager: ObservableObject {
     
     // Built-in relays carry private-message envelopes, so avoid relays known to
     // reject the kinds they use.
-    nonisolated private static let builtInRelays = [
+    private static let builtInRelays = [
         "wss://relay.damus.io",
         "wss://nos.lol",
         "wss://relay.primal.net",
         "wss://offchain.pub"
         // For local testing, you can add: "ws://localhost:8080"
     ]
-    /// Exposed so the relay settings UI can reject re-adding a built-in.
-    /// `nonisolated` because it is an immutable constant with no actor state.
-    nonisolated static let builtInRelayURLs = Set(
-        builtInRelays.compactMap { NostrRelayURL.normalized($0) }
-    )
+    private static let builtInRelaySet = Set(builtInRelays.compactMap { NostrRelayURL.normalized($0) })
 
     /// The relays private messages target: the built-in set plus any added by
     /// hand. Four hardcoded hostnames are four names for a censor to block, so
@@ -185,6 +181,10 @@ final class NostrRelayManager: ObservableObject {
             .filter { seen.insert($0).inserted }
         defaultRelaySet = Set(defaultRelays)
     }
+
+    /// Exposed so the relay settings UI can reject re-adding a built-in.
+    /// `nonisolated` because it is an immutable constant with no actor state.
+    nonisolated static var builtInRelayURLs: Set<String> { builtInRelaySet }
 
     @Published private(set) var relays: [Relay] = []
     @Published private(set) var isConnected = false
@@ -394,6 +394,7 @@ final class NostrRelayManager: ObservableObject {
         let started = inboundRouter.startPipeline(for: relayUrl) { [weak self] stream in
             Task.detached(priority: .userInitiated) {
                 for await frame in stream {
+                    self?.inboundRouter.didConsume(frame, from: relayUrl)
                     guard let parsed = ParsedInbound(frame.message) else { continue }
                     guard let self else { return }
                     switch parsed {
@@ -1654,8 +1655,22 @@ final class NostrRelayManager: ObservableObject {
 // MARK: - Off-main inbound parsing helpers (file scope, non-isolated)
 
 /// A single raw socket frame awaiting off-main parse + Schnorr verification.
-private struct InboundFrame: Sendable {
+struct InboundFrame: Sendable {
     let message: URLSessionWebSocketTask.Message
+
+    let byteCount: Int
+
+    init(message: URLSessionWebSocketTask.Message) {
+        self.message = message
+        switch message {
+        case .string(let text):
+            byteCount = text.utf8.count
+        case .data(let data):
+            byteCount = data.count
+        @unknown default:
+            byteCount = 0
+        }
+    }
 }
 
 /// Lock-guarded registry of per-relay inbound streams.
@@ -1666,17 +1681,18 @@ private struct InboundFrame: Sendable {
 /// driven from the main actor; frame delivery (`yield`) can come from any
 /// thread. All access is serialized by a single lock — contention is negligible
 /// because the guarded critical section is only a dictionary lookup + yield.
-private final class InboundFrameRouter: @unchecked Sendable {
+final class InboundFrameRouter: @unchecked Sendable {
     private let lock = NSLock()
     private var continuations: [String: AsyncStream<InboundFrame>.Continuation] = [:]
     private var tasks: [String: Task<Void, Never>] = [:]
+    private var bufferedBytesByRelay: [String: Int] = [:]
+    private var totalBufferedBytes = 0
 
     /// Start a relay's stream + consumer if one does not already exist.
     /// Returns true when a new pipeline was created. The bounded
     /// `.bufferingNewest` policy makes a single relay shed its OWN oldest
-    /// frames under a flood, never other relays' frames. Buffered memory per
-    /// relay is bounded (not eliminated) at the frame cap times the per-frame
-    /// byte cap (`maximumMessageSize`) — see TransportConfig.
+    /// frames under a flood, never other relays' frames. Explicit per-relay
+    /// and process-wide byte budgets supplement the frame count.
     func startPipeline(
         for relayUrl: String,
         makeConsumer: (AsyncStream<InboundFrame>) -> Task<Void, Never>
@@ -1688,6 +1704,7 @@ private final class InboundFrameRouter: @unchecked Sendable {
             bufferingPolicy: .bufferingNewest(TransportConfig.nostrInboundPerRelayBufferCap)
         )
         continuations[relayUrl] = continuation
+        bufferedBytesByRelay[relayUrl] = 0
         tasks[relayUrl] = makeConsumer(stream)
         return true
     }
@@ -1695,11 +1712,42 @@ private final class InboundFrameRouter: @unchecked Sendable {
     /// Route a frame to a relay's stream. No-op if the relay has no live
     /// pipeline (socket already torn down) — the frame is simply dropped, which
     /// is safe for best-effort Nostr inbound.
-    func yield(_ frame: InboundFrame, to relayUrl: String) {
+    @discardableResult
+    func yield(_ frame: InboundFrame, to relayUrl: String) -> Bool {
         lock.lock()
-        let continuation = continuations[relayUrl]
+        guard let continuation = continuations[relayUrl] else {
+            lock.unlock()
+            return false
+        }
+        let relayBytes = bufferedBytesByRelay[relayUrl, default: 0]
+        guard relayBytes + frame.byteCount <= TransportConfig.nostrInboundPerRelayBufferBytes,
+              totalBufferedBytes + frame.byteCount <= TransportConfig.nostrInboundGlobalBufferBytes else {
+            lock.unlock()
+            return false
+        }
+        bufferedBytesByRelay[relayUrl] = relayBytes + frame.byteCount
+        totalBufferedBytes += frame.byteCount
         lock.unlock()
-        continuation?.yield(frame)
+
+        switch continuation.yield(frame) {
+        case .enqueued:
+            return true
+        case .dropped(let dropped):
+            releaseBufferedBytes(dropped.byteCount, from: relayUrl)
+            return true
+        case .terminated:
+            releaseBufferedBytes(frame.byteCount, from: relayUrl)
+            return false
+        @unknown default:
+            releaseBufferedBytes(frame.byteCount, from: relayUrl)
+            return false
+        }
+    }
+
+    /// Release a frame from the buffered budget as soon as the consumer takes
+    /// it. Parsing and Schnorr verification then run outside the queue budget.
+    func didConsume(_ frame: InboundFrame, from relayUrl: String) {
+        releaseBufferedBytes(frame.byteCount, from: relayUrl)
     }
 
     /// Finish a relay's stream. The consumer drains any already-buffered frames
@@ -1708,6 +1756,9 @@ private final class InboundFrameRouter: @unchecked Sendable {
         lock.lock()
         let continuation = continuations.removeValue(forKey: relayUrl)
         tasks.removeValue(forKey: relayUrl)
+        if let released = bufferedBytesByRelay.removeValue(forKey: relayUrl) {
+            totalBufferedBytes = max(0, totalBufferedBytes - released)
+        }
         lock.unlock()
         continuation?.finish()
     }
@@ -1717,10 +1768,28 @@ private final class InboundFrameRouter: @unchecked Sendable {
         let allContinuations = continuations
         continuations.removeAll()
         tasks.removeAll()
+        bufferedBytesByRelay.removeAll()
+        totalBufferedBytes = 0
         lock.unlock()
         for continuation in allContinuations.values {
             continuation.finish()
         }
+    }
+
+    var bufferedByteCountForTesting: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return totalBufferedBytes
+    }
+
+    private func releaseBufferedBytes(_ byteCount: Int, from relayUrl: String) {
+        guard byteCount > 0 else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        guard let current = bufferedBytesByRelay[relayUrl] else { return }
+        let released = min(byteCount, current)
+        bufferedBytesByRelay[relayUrl] = current - released
+        totalBufferedBytes = max(0, totalBufferedBytes - released)
     }
 }
 

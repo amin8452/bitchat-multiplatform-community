@@ -300,7 +300,7 @@ actor VoiceRecorder {
 
         let baseDirectory = try outputDirectory
             ?? applicationFilesDirectory().appendingPathComponent("voicenotes/outgoing", isDirectory: true)
-        try FileManager.default.createDirectory(at: baseDirectory, withIntermediateDirectories: true, attributes: BLEIncomingFileStore.mediaProtectionAttributes)
+        try FileManager.default.createDirectory(at: baseDirectory, withIntermediateDirectories: true, attributes: nil)
         return baseDirectory.appendingPathComponent(fileName)
     }
 

@@ -127,7 +127,7 @@ struct ThemePalette {
 }
 
 private struct AppThemeKey: EnvironmentKey {
-    static let defaultValue: AppTheme = .matrix
+    static let defaultValue: AppTheme = .liquidGlass
 }
 
 extension EnvironmentValues {
@@ -249,8 +249,8 @@ private struct ThemedChromePanelModifier: ViewModifier {
 }
 
 /// Background for the composer input field. Matrix keeps its translucent fill;
-/// glass leaves it clear — the field sits inside the composer's glass panel,
-/// and glass cannot sample other glass.
+/// glass uses a quiet solid tint so the field stays legible without nesting a
+/// second material layer inside the composer's glass panel.
 private struct ThemedInputBackgroundModifier: ViewModifier {
     @Environment(\.appTheme) private var theme
     @Environment(\.colorScheme) private var colorScheme
@@ -263,6 +263,8 @@ private struct ThemedInputBackgroundModifier: ViewModifier {
     func body(content: Content) -> some View {
         if theme.usesGlassChrome {
             content
+                .background(shape.fill(Color.primary.opacity(colorScheme == .dark ? 0.08 : 0.055)))
+                .overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
         } else {
             content.background(
                 shape.fill(colorScheme == .dark ? Color.black.opacity(0.35) : Color.white.opacity(0.7))
@@ -284,6 +286,13 @@ extension View {
         modifier(ThemedInputBackgroundModifier())
     }
 
+    /// Modern chat-bubble treatment for Liquid Glass. Matrix deliberately
+    /// keeps its compact terminal rows, so switching themes changes the
+    /// visual language without erasing BitChat's original identity.
+    func themedMessageBubble(isFromCurrentUser: Bool) -> some View {
+        modifier(ThemedMessageBubbleModifier(isFromCurrentUser: isFromCurrentUser))
+    }
+
     /// Floating surface for popover-style boxes (autocomplete, command
     /// suggestions): glass panel under liquid glass, the original flat
     /// background + hairline stroke under matrix.
@@ -301,6 +310,64 @@ extension View {
     /// opaque wash; glass goes transparent so the backdrop gradient shows.
     func themedSurface(opacity: Double = 1.0) -> some View {
         modifier(ThemedSurfaceModifier(opacity: opacity))
+    }
+}
+
+private struct ThemedMessageBubbleModifier: ViewModifier {
+    @Environment(\.appTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
+    @ThemedPalette private var palette
+
+    let isFromCurrentUser: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if theme.usesGlassChrome {
+            HStack(alignment: .bottom, spacing: 0) {
+                if isFromCurrentUser {
+                    Spacer(minLength: 48)
+                }
+
+                content
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 17, style: .continuous)
+                            .fill(bubbleColor)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 17, style: .continuous)
+                            .stroke(bubbleStroke, lineWidth: 0.5)
+                    )
+                    .shadow(
+                        color: Color.black.opacity(colorScheme == .dark ? 0.16 : 0.06),
+                        radius: 5,
+                        y: 2
+                    )
+                    .layoutPriority(1)
+
+                if !isFromCurrentUser {
+                    Spacer(minLength: 48)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        } else {
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var bubbleColor: Color {
+        if isFromCurrentUser {
+            return palette.accent.opacity(colorScheme == .dark ? 0.24 : 0.14)
+        }
+        return palette.primary.opacity(colorScheme == .dark ? 0.09 : 0.055)
+    }
+
+    private var bubbleStroke: Color {
+        isFromCurrentUser
+            ? palette.accent.opacity(colorScheme == .dark ? 0.38 : 0.22)
+            : palette.divider.opacity(0.75)
     }
 }
 

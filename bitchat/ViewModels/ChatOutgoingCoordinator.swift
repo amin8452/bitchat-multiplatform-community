@@ -22,6 +22,7 @@ protocol ChatOutgoingContext: AnyObject {
     func handleCommand(_ command: String)
     func updatePrivateChatPeerIfNeeded()
     func sendPrivateMessage(_ content: String, to peerID: PeerID)
+    func addLocalPrivateSystemMessage(_ content: String, to peerID: PeerID)
 
     // MARK: Public timeline (local echo)
     func parseMentions(from content: String) -> [String]
@@ -94,32 +95,72 @@ final class ChatOutgoingCoordinator {
         geohashMiningTask?.cancel()
     }
 
-    func sendMessage(_ content: String) {
-        guard let trimmed = content.trimmedOrNilIfEmpty else { return }
+    /// Returns whether the composer may clear its draft. Invalid or currently
+    /// unroutable input stays in the field so the user can shorten or retry it.
+    @discardableResult
+    func sendMessage(_ content: String) -> Bool {
+        guard content.trimmedOrNilIfEmpty != nil else { return false }
 
         if content.hasPrefix("/") {
             Task { @MainActor [weak context = self.context] in
                 context?.handleCommand(content)
             }
-            return
+            return true
         }
 
         if context.selectedPrivateChatPeer != nil {
             context.updatePrivateChatPeerIfNeeded()
 
-            if let selectedPeer = context.selectedPrivateChatPeer {
-                context.sendPrivateMessage(content, to: selectedPeer)
+            guard let selectedPeer = context.selectedPrivateChatPeer else {
+                return false
             }
-            return
+
+            let validatedContent: String?
+            let validationError: String
+            if selectedPeer.isGroup {
+                validatedContent = InputValidator.validateGroupMessage(content)
+                validationError = String(
+                    localized: "system.message.group_too_large",
+                    defaultValue: "group messages are limited to 60,000 UTF-8 bytes.",
+                    comment: "Error shown when a group message exceeds the encrypted group wire-format byte limit"
+                )
+            } else {
+                validatedContent = InputValidator.validatePrivateMessage(content)
+                validationError = String(
+                    localized: "system.message.private_too_large",
+                    defaultValue: "private messages are limited to 255 UTF-8 bytes.",
+                    comment: "Error shown when a private message exceeds the deployed wire-format byte limit"
+                )
+            }
+
+            guard let validatedContent else {
+                context.addLocalPrivateSystemMessage(validationError, to: selectedPeer)
+                return false
+            }
+
+            context.sendPrivateMessage(validatedContent, to: selectedPeer)
+            return true
         }
 
-        let mentions = context.parseMentions(from: content)
+        guard let publicContent = InputValidator.validatePublicMessage(content) else {
+            context.addSystemMessage(
+                String(
+                    localized: "system.message.public_too_large",
+                    defaultValue: "public messages are limited to 16,000 UTF-8 bytes.",
+                    comment: "Error shown when a public message exceeds the cross-transport byte limit"
+                )
+            )
+            return false
+        }
+
+        let mentions = context.parseMentions(from: publicContent)
 
         switch context.activeChannel {
         case .mesh:
-            sendMeshPublicMessage(originalContent: content, trimmed: trimmed, mentions: mentions)
+            sendMeshPublicMessage(publicContent, mentions: mentions)
+            return true
         case .location(let channel):
-            sendGeohashPublicMessage(trimmed, mentions: mentions, channel: channel)
+            return sendGeohashPublicMessage(publicContent, mentions: mentions, channel: channel)
         }
     }
 
@@ -127,15 +168,15 @@ final class ChatOutgoingCoordinator {
     /// used by the "bitchatters nearby" notification quick action, which always
     /// refers to mesh peers.
     func sendMeshWave() {
-        sendMeshPublicMessage(originalContent: "👋", trimmed: "👋", mentions: [])
+        sendMeshPublicMessage("👋", mentions: [])
     }
 }
 
 private extension ChatOutgoingCoordinator {
-    func sendMeshPublicMessage(originalContent: String, trimmed: String, mentions: [String]) {
+    func sendMeshPublicMessage(_ content: String, mentions: [String]) {
         let message = BitchatMessage(
             sender: context.nickname,
-            content: trimmed,
+            content: content,
             timestamp: Date(),
             isRelay: false,
             senderPeerID: context.myPeerID,
@@ -145,12 +186,12 @@ private extension ChatOutgoingCoordinator {
         appendLocalEcho(message, to: .mesh)
         context.recordPublicActivity(forChannelKey: "mesh")
         context.sendMeshMessage(
-            originalContent,
+            content,
             mentions: mentions,
             messageID: message.id,
             timestamp: message.timestamp
         )
-        context.bridgeOutgoingPublicMessage(trimmed, senderPeerID: context.myPeerID, timestamp: message.timestamp)
+        context.bridgeOutgoingPublicMessage(content, senderPeerID: context.myPeerID, timestamp: message.timestamp)
     }
 
     /// Geohash sends mine a NIP-13 nonce tag first (off the main actor, see
@@ -158,7 +199,7 @@ private extension ChatOutgoingCoordinator {
     /// event — whose ID is also the local message ID — exists. Typical mining
     /// at the default target is well under 100 ms and hard-capped at
     /// `NostrPoW.miningTimeCap`, so sending is never meaningfully delayed.
-    func sendGeohashPublicMessage(_ trimmed: String, mentions: [String], channel: GeohashChannel) {
+    func sendGeohashPublicMessage(_ trimmed: String, mentions: [String], channel: GeohashChannel) -> Bool {
         let identity: NostrIdentity
         do {
             identity = try context.deriveNostrIdentity(forGeohash: channel.geohash)
@@ -167,7 +208,7 @@ private extension ChatOutgoingCoordinator {
             context.addSystemMessage(
                 String(localized: "system.location.send_failed", comment: "System message when a location channel send fails")
             )
-            return
+            return false
         }
 
         let displaySender = context.nickname + "#" + String(identity.publicKeyHex.suffix(4))
@@ -227,6 +268,7 @@ private extension ChatOutgoingCoordinator {
                 teleported: teleported
             ))
         }
+        return true
     }
 
     func appendLocalEcho(_ message: BitchatMessage, to conversationID: ConversationID) {

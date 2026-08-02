@@ -454,7 +454,10 @@ final class ChatPublicConversationCoordinator: PublicMessagePipelineDelegate {
             }
         }
 
-        if !isSystem && finalMessage.content.count > 16000 { return }
+        if !isSystem &&
+            finalMessage.content.utf8.count > InputValidator.Limits.maxPublicMessageBytes {
+            return
+        }
         // Empty content never rendered before (the old visible-array enqueue
         // filtered it); with the store as the sole timeline it is dropped
         // outright instead of lingering invisibly in a backing buffer.
@@ -506,15 +509,14 @@ final class ChatPublicConversationCoordinator: PublicMessagePipelineDelegate {
     }
 
     func checkForMentions(_ message: BitchatMessage) {
-        let myNickname = context.nickname.normalizedNickname
-        var myTokens: Set<String> = [myNickname]
+        var myTokens: Set<String> = [context.nickname]
         let meshPeers = context.meshPeerNicknames()
-        let collisions = meshPeers.values.filter { $0.normalizedNickname.hasPrefix(myNickname + "#") }
+        let collisions = meshPeers.values.filter { $0.hasPrefix(context.nickname + "#") }
         if !collisions.isEmpty {
             let suffix = "#" + String(context.myPeerID.id.prefix(4))
-            myTokens = [myNickname + suffix]
+            myTokens = [context.nickname + suffix]
         }
-        let isMentioned = message.mentions?.contains { myTokens.contains($0.normalizedNickname) } ?? false
+        let isMentioned = message.mentions?.contains(where: myTokens.contains) ?? false
 
         if isMentioned && message.sender != context.nickname {
             SecureLogger.info("🔔 Mention from \(message.sender)", category: .session)

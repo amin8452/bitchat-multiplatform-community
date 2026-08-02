@@ -950,4 +950,18 @@ struct ChatPrivateConversationCoordinatorContextTests {
         #expect(context.routedPrivateMessages.map(\.content) == ["hello?"])
         #expect(context.privateChats[peerID]?.first?.deliveryStatus == .sending)
     }
+
+    @Test @MainActor
+    func sendPrivateMessage_rejectsOversizedUTF8BeforeEchoAndRouting() {
+        let context = MockChatPrivateConversationContext()
+        let coordinator = ChatPrivateConversationCoordinator(context: context)
+        let peerID = PeerID(hexData: Data(repeating: 0xCD, count: 32))
+
+        coordinator.sendPrivateMessage(String(repeating: "😀", count: 64), to: peerID)
+
+        #expect(context.privateChats[peerID, default: []].isEmpty)
+        #expect(context.routedPrivateMessages.isEmpty)
+        #expect(context.privateSystemMessages.count == 1)
+        #expect(context.privateSystemMessages.first?.peerID == peerID)
+    }
 }

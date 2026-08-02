@@ -148,7 +148,14 @@ final class MessageRouter {
         self.courierDirectory = courierDirectory ?? .favoritesBacked()
         self.outboxStore = outboxStore
         self.metrics = metrics
-        self.outbox = outboxStore?.load() ?? [:]
+        let restoredOutbox = outboxStore?.load() ?? [:]
+        self.outbox = Self.removingUnencodableMessages(from: restoredOutbox)
+        if self.outbox != restoredOutbox {
+            // Older app versions could persist content that the one-byte
+            // private-message TLV can never encode. Remove it once instead of
+            // retrying the impossible payload on every reconnect.
+            outboxStore?.save(self.outbox)
+        }
         outboxStore?.setRecoveryHandler { [weak self] recovered in
             self?.mergeRecoveredOutbox(recovered)
         }
@@ -190,8 +197,17 @@ final class MessageRouter {
     // MARK: - Message Sending
 
     func sendPrivate(_ content: String, to peerID: PeerID, recipientNickname: String, messageID: String) {
+        guard messageID.utf8.count <= PrivateMessagePacket.maxMessageIDBytes,
+              let validatedContent = InputValidator.validatePrivateMessage(content) else {
+            SecureLogger.error(
+                "Rejected invalid PM before routing: message ID/content exceeds the deployed TLV limits",
+                category: .session
+            )
+            return
+        }
+
         let message = QueuedMessage(
-            content: content,
+            content: validatedContent,
             nickname: recipientNickname,
             messageID: messageID,
             timestamp: now(),
@@ -208,7 +224,7 @@ final class MessageRouter {
             enqueue(message, for: peerID)
             secureTransmissions.insert(PeerMessageKey(peerID: peerID, messageID: messageID))
             SecureLogger.debug("Routing PM via \(type(of: transport)) (connected) to \(peerID.id.prefix(8))… id=\(messageID.prefix(8))…", category: .session)
-            transport.sendPrivateMessage(content, to: peerID, recipientNickname: recipientNickname, messageID: messageID)
+            transport.sendPrivateMessage(validatedContent, to: peerID, recipientNickname: recipientNickname, messageID: messageID)
             return
         }
 
@@ -231,7 +247,7 @@ final class MessageRouter {
             SecureLogger.debug("Routing PM via \(type(of: transport)) (connected, no secure session) to \(peerID.id.prefix(8))… id=\(messageID.prefix(8))…", category: .session)
             enqueue(message, for: peerID)
             secureTransmissions.remove(PeerMessageKey(peerID: peerID, messageID: messageID))
-            transport.sendPrivateMessage(content, to: peerID, recipientNickname: recipientNickname, messageID: messageID)
+            transport.sendPrivateMessage(validatedContent, to: peerID, recipientNickname: recipientNickname, messageID: messageID)
             attemptCourierDeposit(messageID: messageID, for: peerID)
             return
         }
@@ -243,7 +259,7 @@ final class MessageRouter {
             // receivers dedup resends by message ID.
             SecureLogger.debug("Routing PM via \(type(of: transport)) (reachable) to \(peerID.id.prefix(8))… id=\(messageID.prefix(8))…", category: .session)
             enqueue(message, for: peerID)
-            transport.sendPrivateMessage(content, to: peerID, recipientNickname: recipientNickname, messageID: messageID)
+            transport.sendPrivateMessage(validatedContent, to: peerID, recipientNickname: recipientNickname, messageID: messageID)
             // "Reachable" without prompt delivery means the send only joined
             // a queue (Nostr with relays down): also hand a sealed copy to
             // any connected couriers rather than waiting for internet that
@@ -524,6 +540,7 @@ final class MessageRouter {
     /// accepted during the locked wake, persist the union, and immediately
     /// resume normal delivery attempts.
     private func mergeRecoveredOutbox(_ recovered: MessageOutboxStore.Snapshot) {
+        let recovered = Self.removingUnencodableMessages(from: recovered)
         for (peerID, recoveredQueue) in recovered {
             var queue = outbox[peerID] ?? []
             for var recoveredMessage in recoveredQueue {
@@ -548,6 +565,21 @@ final class MessageRouter {
         persistOutbox()
         flushAllOutbox()
         retryBridgeCourierDeposits()
+    }
+
+    private static func removingUnencodableMessages(
+        from snapshot: MessageOutboxStore.Snapshot
+    ) -> MessageOutboxStore.Snapshot {
+        snapshot.reduce(into: [:]) { sanitized, entry in
+            let queue = entry.value.filter { message in
+                message.messageID.utf8.count <= PrivateMessagePacket.maxMessageIDBytes
+                    && message.content.trimmedOrNilIfEmpty != nil
+                    && message.content.utf8.count <= PrivateMessagePacket.maxContentBytes
+            }
+            if !queue.isEmpty {
+                sanitized[entry.key] = queue
+            }
+        }
     }
 
     /// Panic wipe: forget queued mail on disk and in memory.

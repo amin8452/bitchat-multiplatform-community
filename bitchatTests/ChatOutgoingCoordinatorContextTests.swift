@@ -51,6 +51,7 @@ private final class MockChatOutgoingContext: ChatOutgoingContext {
     // Public timeline (local echo)
     private(set) var appendedPublicMessages: [(message: BitchatMessage, conversationID: ConversationID)] = []
     private(set) var systemMessages: [String] = []
+    private(set) var privateSystemMessages: [(content: String, peerID: PeerID)] = []
 
     func parseMentions(from content: String) -> [String] {
         content.contains("@bob") ? ["bob"] : []
@@ -63,6 +64,9 @@ private final class MockChatOutgoingContext: ChatOutgoingContext {
     }
 
     func addSystemMessage(_ content: String) { systemMessages.append(content) }
+    func addLocalPrivateSystemMessage(_ content: String, to peerID: PeerID) {
+        privateSystemMessages.append((content, peerID))
+    }
 
     // Content dedup
     private(set) var recordedContentKeys: [(key: String, timestamp: Date)] = []
@@ -177,15 +181,53 @@ struct ChatOutgoingCoordinatorContextTests {
         #expect(echo.conversationID == .mesh)
         #expect(context.recordedContentKeys.map(\.key) == ["key:hello @bob"])
 
-        // The mesh send carries the original (untrimmed) content and reuses
-        // the echo's message ID and timestamp; activity is stamped for "mesh".
+        // Echo, mesh transport, and bridge all carry the same validated,
+        // trimmed bytes and reuse the echo's message ID and timestamp.
         #expect(context.recordedActivityKeys == ["mesh"])
         #expect(context.sentMeshMessages.count == 1)
         let sent = context.sentMeshMessages[0]
-        #expect(sent.content == "  hello @bob  ")
+        #expect(sent.content == "hello @bob")
         #expect(sent.mentions == ["bob"])
         #expect(sent.messageID == echo.message.id)
         #expect(sent.timestamp == echo.message.timestamp)
+        #expect(context.bridgedMessages.map(\.content) == ["hello @bob"])
+    }
+
+    @Test @MainActor
+    func sendMessage_rejectsOversizedPublicAndPrivateDraftsBeforeEcho() {
+        let context = MockChatOutgoingContext()
+        let coordinator = ChatOutgoingCoordinator(context: context)
+
+        let publicResult = coordinator.sendMessage(
+            String(repeating: "a", count: InputValidator.Limits.maxPublicMessageBytes + 1)
+        )
+        #expect(publicResult == false)
+        #expect(context.appendedPublicMessages.isEmpty)
+        #expect(context.sentMeshMessages.isEmpty)
+        #expect(context.systemMessages.count == 1)
+
+        context.selectedPrivateChatPeer = PeerID(str: "1111111111111111")
+        let privateResult = coordinator.sendMessage(String(repeating: "😀", count: 64))
+        #expect(privateResult == false)
+        #expect(context.sentPrivateMessages.isEmpty)
+        #expect(context.systemMessages.count == 1)
+        #expect(context.privateSystemMessages.count == 1)
+    }
+
+    @Test @MainActor
+    func sendMessage_usesTheLargerGroupWireLimit() {
+        let context = MockChatOutgoingContext()
+        let coordinator = ChatOutgoingCoordinator(context: context)
+        let groupPeer = PeerID(groupID: Data(repeating: 0x44, count: BitchatGroup.groupIDLength))
+        let groupContent = String(repeating: "g", count: 256)
+        context.selectedPrivateChatPeer = groupPeer
+
+        let result = coordinator.sendMessage(groupContent)
+
+        #expect(result)
+        #expect(context.sentPrivateMessages.map(\.content) == [groupContent])
+        #expect(context.sentPrivateMessages.map(\.peerID) == [groupPeer])
+        #expect(context.privateSystemMessages.isEmpty)
     }
 
     @Test @MainActor

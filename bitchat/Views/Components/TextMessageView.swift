@@ -23,7 +23,7 @@ struct TextMessageView: View {
     /// SAME instance would otherwise compare "unchanged" and this row's body
     /// would be skipped even though the parent list re-rendered. Snapshotting
     /// the enum makes the change visible to SwiftUI's structural diff.
-    private let deliveryStatus: DeliveryStatus
+    private let deliveryStatus: DeliveryStatus?
     @State private var expandedMessageIDs: Set<String> = []
     @State private var showDeliveryDetail = false
 
@@ -62,17 +62,17 @@ struct TextMessageView: View {
                 Text(conversationUIModel.formatMessage(message, colorScheme: colorScheme, theme: theme))
                     .fixedSize(horizontal: false, vertical: true)
                     .lineLimit(isLong && !isExpanded ? TransportConfig.uiLongMessageLineLimit : nil)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.leading)
                 
                 // Delivery status indicator for private messages. Tappable:
                 // .help() tooltips only exist on macOS, so iOS users get the
                 // explanation as a caption under the row instead.
                 if message.isPrivate && conversationUIModel.isSentByCurrentUser(message),
-                   deliveryStatus != .notSentYet {
+                   let status = deliveryStatus {
                     Button {
                         showDeliveryDetail.toggle()
                     } label: {
-                        DeliveryStatusView(status: deliveryStatus)
+                        DeliveryStatusView(status: status)
                             .padding(.leading, 4)
                             .contentShape(Rectangle())
                     }
@@ -86,15 +86,15 @@ struct TextMessageView: View {
             // Failure reasons stay visible without a tap; other statuses
             // reveal on demand.
             if message.isPrivate && conversationUIModel.isSentByCurrentUser(message),
-               deliveryStatus != .notSentYet {
-                if case .failed = deliveryStatus {
-                    Text(verbatim: deliveryStatus.bitchatDescription)
+               let status = deliveryStatus {
+                if case .failed = status {
+                    Text(verbatim: status.bitchatDescription)
                         .bitchatFont(size: 11)
                         .foregroundColor(Color.red.opacity(0.9))
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 2)
                 } else if showDeliveryDetail {
-                    Text(verbatim: deliveryStatus.bitchatDescription)
+                    Text(verbatim: status.bitchatDescription)
                         .bitchatFont(size: 11)
                         .foregroundColor(palette.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -129,6 +129,9 @@ struct TextMessageView: View {
                 .padding(.leading, 2)
             }
         }
+        .themedMessageBubble(
+            isFromCurrentUser: conversationUIModel.isSentByCurrentUser(message)
+        )
         // Collapse the revealed caption when the status advances (e.g.
         // sending → sent → delivered) so a detail opened for one state
         // doesn't linger and silently morph into another. Guarded write:

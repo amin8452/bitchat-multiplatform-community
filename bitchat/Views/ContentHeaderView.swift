@@ -37,11 +37,11 @@ struct ContentHeaderView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: theme.usesGlassChrome ? 4 : 0) {
             Text(verbatim: "bitchat/")
-                .bitchatFont(size: 18, weight: .medium)
+                .bitchatFont(size: theme.usesGlassChrome ? 19 : 18, weight: .semibold)
                 .lineLimit(1)
-                .foregroundColor(palette.primary)
+                .foregroundColor(theme.usesGlassChrome ? palette.accent : palette.primary)
                 // When icons crowd the header, squeeze the nickname first
                 // (priority 0) and the logo only as a last resort; the icon
                 // cluster at priority 3 never gives up width.
@@ -96,6 +96,13 @@ struct ContentHeaderView: View {
                     appChromeModel.validateAndSaveNickname()
                 }
             }
+            .padding(.horizontal, theme.usesGlassChrome ? 8 : 0)
+            .padding(.vertical, theme.usesGlassChrome ? 5 : 0)
+            .background {
+                if theme.usesGlassChrome {
+                    Capsule().fill(palette.primary.opacity(0.06))
+                }
+            }
 
             Spacer()
 
@@ -111,7 +118,7 @@ struct ContentHeaderView: View {
                 return countAndColor.0 + bridgeService.bridgedPeerCount
             }()
 
-            HStack(spacing: 2) {
+            HStack(spacing: theme.usesGlassChrome ? 3 : 2) {
                 if locationChannelsModel.gatewayEnabled {
                     // The gateway toggle lives in the App Info settings pane
                     // now, so the indicator deep-links there.
@@ -299,7 +306,7 @@ struct ContentHeaderView: View {
         // headerHeight is a @ScaledMetric, so it still grows with Dynamic
         // Type.
         .frame(height: headerHeight)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, theme.usesGlassChrome ? 14 : 12)
         .onReceive(CourierStore.shared.$carriedCount) { count in
             carriedMailCount = count
         }

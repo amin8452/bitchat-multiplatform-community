@@ -1859,8 +1859,7 @@ private extension ChatMediaTransferCoordinator {
                 TimeInterval(UInt64.max) / 1_000_000_000
             ) * 1_000_000_000
         )
-        reconnectRetryExpiryTasks[messageID] = Task {
-            @MainActor [weak self] in
+        reconnectRetryExpiryTasks[messageID] = Task { @MainActor [weak self] in
             if nanoseconds > 0 {
                 try? await Task.sleep(nanoseconds: nanoseconds)
             }
@@ -1899,7 +1898,7 @@ private extension ChatMediaTransferCoordinator {
         try FileManager.default.createDirectory(
             at: filesDirectory,
             withIntermediateDirectories: true,
-            attributes: BLEIncomingFileStore.mediaProtectionAttributes
+            attributes: nil
         )
         return filesDirectory
     }

@@ -176,12 +176,10 @@ final class ChatViewModel: ObservableObject, BitchatDelegate, SynchronousMessage
     var networkActivationAllowed: Bool { !panicRecoveryBlocked }
     @Published var nickname: String = "" {
         didSet {
-            // Canonicalize whenever nickname is set: trim whitespace
-            // (whitespace-only becomes "") and apply Unicode NFC so accented
-            // names match regardless of how they were typed.
-            let cleaned = (nickname.trimmedOrNilIfEmpty ?? "").normalizedNickname
-            if cleaned != nickname {
-                nickname = cleaned
+            // Trim whitespace whenever nickname is set; whitespace-only becomes ""
+            let trimmed = nickname.trimmedOrNilIfEmpty ?? ""
+            if trimmed != nickname {
+                nickname = trimmed
                 return
             }
             // Update mesh service nickname if it's initialized
@@ -1316,7 +1314,8 @@ final class ChatViewModel: ObservableObject, BitchatDelegate, SynchronousMessage
     /// - Note: Automatically handles command processing if content starts with '/'
     ///         Routes to private chat if one is selected, otherwise broadcasts
     @MainActor
-    func sendMessage(_ content: String) {
+    @discardableResult
+    func sendMessage(_ content: String) -> Bool {
         outgoingCoordinator.sendMessage(content)
     }
 

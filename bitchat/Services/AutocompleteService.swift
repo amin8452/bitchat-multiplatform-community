@@ -52,13 +52,13 @@ final class AutocompleteService {
         let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
         
         guard let match = matches.last else { return nil }
-        
+
         let fullRange = match.range(at: 0)
         let captureRange = match.range(at: 1)
-        let prefix = nsText.substring(with: captureRange).normalizedNickname.lowercased()
+        let prefix = nsText.substring(with: captureRange).lowercased()
 
         let suggestions = peers
-            .filter { $0.normalizedNickname.lowercased().hasPrefix(prefix) }
+            .filter { $0.lowercased().hasPrefix(prefix) }
             .sorted()
             .prefix(5)
             .map { "@\($0)" }

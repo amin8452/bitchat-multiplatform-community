@@ -49,7 +49,8 @@ final class ConversationUIModel: ObservableObject {
         chatViewModel.currentTheme = theme
     }
 
-    func sendMessage(_ message: String) {
+    @discardableResult
+    func sendMessage(_ message: String) -> Bool {
         chatViewModel.sendMessage(message)
     }
 
@@ -57,8 +58,9 @@ final class ConversationUIModel: ObservableObject {
     /// removing the failed original so the re-submission replaces it
     /// instead of stacking a duplicate under the red bubble.
     func resendFailedPrivateMessage(_ message: BitchatMessage) {
-        chatViewModel.removePrivateMessage(withID: message.id)
-        chatViewModel.sendMessage(message.content)
+        if chatViewModel.sendMessage(message.content) {
+            chatViewModel.removePrivateMessage(withID: message.id)
+        }
     }
 
     func clearCurrentConversation() {

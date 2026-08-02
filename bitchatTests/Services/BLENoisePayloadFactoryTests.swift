@@ -16,6 +16,22 @@ struct BLENoisePayloadFactoryTests {
     }
 
     @Test
+    func privateMessagePayloadHonorsUTF8WireBoundary() {
+        #expect(BLENoisePayloadFactory.privateMessage(
+            content: String(repeating: "a", count: 255),
+            messageID: "pm-ok"
+        ) != nil)
+        #expect(BLENoisePayloadFactory.privateMessage(
+            content: String(repeating: "a", count: 256),
+            messageID: "pm-too-large"
+        ) == nil)
+        #expect(BLENoisePayloadFactory.privateMessage(
+            content: String(repeating: "😀", count: 64),
+            messageID: "pm-unicode-too-large"
+        ) == nil)
+    }
+
+    @Test
     func receiptPayloadsUseMessageIDBytes() {
         let read = BLENoisePayloadFactory.readReceipt(originalMessageID: "read-id")
         let delivered = BLENoisePayloadFactory.delivered(messageID: "delivered-id")

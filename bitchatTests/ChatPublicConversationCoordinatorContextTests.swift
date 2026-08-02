@@ -318,6 +318,19 @@ struct ChatPublicConversationCoordinatorContextTests {
     }
 
     @Test @MainActor
+    func handlePublicMessage_enforcesUTF8ByteLimit() {
+        let context = MockChatPublicConversationContext()
+        let coordinator = ChatPublicConversationCoordinator(context: context)
+        let accepted = String(repeating: "a", count: InputValidator.Limits.maxPublicMessageBytes)
+        let rejected = String(repeating: "😀", count: 4_001) // 16,004 UTF-8 bytes
+
+        coordinator.handlePublicMessage(makePublicMessage(id: "accepted-limit", content: accepted))
+        coordinator.handlePublicMessage(makePublicMessage(id: "rejected-limit", content: rejected))
+
+        #expect(context.enqueuedMessageIDs == ["accepted-limit"])
+    }
+
+    @Test @MainActor
     func handlePublicMessage_geoMessage_respectsActiveChannel() async {
         let context = MockChatPublicConversationContext()
         let coordinator = ChatPublicConversationCoordinator(context: context)

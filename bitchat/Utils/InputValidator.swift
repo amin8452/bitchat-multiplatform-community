@@ -9,9 +9,21 @@ struct InputValidator {
     
     struct Limits {
         static let maxNicknameLength = 50
-        // BinaryProtocol caps payload length at UInt16.max (65_535). Leave headroom
-        // for headers/padding by limiting user content to 60_000 bytes.
-        static let maxMessageLength = 60_000
+        /// Public messages share one cross-transport receive policy. The mesh
+        /// v1 frame can carry more, but bridge/shared-content paths already
+        /// cap text at 16 KiB and receivers historically dropped content above
+        /// 16,000 characters. Express the contract in UTF-8 bytes so Unicode
+        /// cannot pass validation and later fail binary encoding.
+        static let maxPublicMessageBytes = 16_000
+
+        /// `PrivateMessagePacket` is the deployed iOS/Android wire format and
+        /// stores the content TLV length in one byte. Keep this compatibility
+        /// limit explicit until a versioned extended-length packet ships.
+        static let maxPrivateMessageBytes = PrivateMessagePacket.maxContentBytes
+
+        /// Group TLVs use UInt16 lengths. Leave room below the wire maximum for
+        /// the other signed fields and encryption envelope.
+        static let maxGroupMessageBytes = 60_000
     }
     
     // MARK: - String Content Validation
@@ -39,10 +51,35 @@ struct InputValidator {
         return trimmed
     }
     
-    /// Validates nickname and returns it in canonical (NFC) form so
-    /// visually identical names always compare equal.
+    /// Validates nickname
     static func validateNickname(_ nickname: String) -> String? {
-        return validateUserString(nickname, maxLength: Limits.maxNicknameLength)?.normalizedNickname
+        return validateUserString(nickname, maxLength: Limits.maxNicknameLength)
+    }
+
+    /// Trims and validates message text against a UTF-8 byte limit.
+    ///
+    /// Message wire formats encode byte lengths, while `String.count` counts
+    /// extended grapheme clusters. Keeping this check byte-based prevents
+    /// multibyte Unicode from being accepted by the UI and rejected later by
+    /// a transport encoder.
+    static func validateMessage(_ message: String, maxUTF8Bytes: Int) -> String? {
+        guard let trimmed = message.trimmedOrNilIfEmpty,
+              trimmed.utf8.count <= maxUTF8Bytes else {
+            return nil
+        }
+        return trimmed
+    }
+
+    static func validatePublicMessage(_ message: String) -> String? {
+        validateMessage(message, maxUTF8Bytes: Limits.maxPublicMessageBytes)
+    }
+
+    static func validatePrivateMessage(_ message: String) -> String? {
+        validateMessage(message, maxUTF8Bytes: Limits.maxPrivateMessageBytes)
+    }
+
+    static func validateGroupMessage(_ message: String) -> String? {
+        validateMessage(message, maxUTF8Bytes: Limits.maxGroupMessageBytes)
     }
     
     // MARK: - Protocol Field Validation

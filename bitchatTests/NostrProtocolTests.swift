@@ -385,6 +385,22 @@ struct NostrProtocolTests {
         }
     }
 
+    @Test
+    func embeddedPrivateMessageEnforcesSameUTF8BoundaryAsMesh() {
+        let senderPeerID = PeerID(str: "0123456789abcdef")
+
+        #expect(NostrEmbeddedBitChat.encodePMForNostrNoRecipient(
+            content: String(repeating: "a", count: InputValidator.Limits.maxPrivateMessageBytes),
+            messageID: "pm-ok",
+            senderPeerID: senderPeerID
+        ) != nil)
+        #expect(NostrEmbeddedBitChat.encodePMForNostrNoRecipient(
+            content: String(repeating: "😀", count: 64),
+            messageID: "pm-too-large",
+            senderPeerID: senderPeerID
+        ) == nil)
+    }
+
     @Test func ackRoundTripNIP44V2_ReadReceipt() throws {
         // Identities
         let sender = try NostrIdentity.generate()

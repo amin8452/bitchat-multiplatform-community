@@ -101,6 +101,39 @@ struct InputValidatorTests {
         #expect(result == "Hello!@#$%^&*()_+-=[]{}|;':\",./<>?")
     }
 
+    // MARK: - Message Byte Limits
+
+    @Test func privateMessageAccepts255ASCIIBytesAndRejects256() {
+        let accepted = String(repeating: "a", count: InputValidator.Limits.maxPrivateMessageBytes)
+        let rejected = accepted + "b"
+
+        #expect(InputValidator.validatePrivateMessage(accepted) == accepted)
+        #expect(InputValidator.validatePrivateMessage(rejected) == nil)
+    }
+
+    @Test func privateMessageLimitUsesUTF8BytesNotCharacterCount() {
+        let accepted = String(repeating: "😀", count: 63) // 252 UTF-8 bytes
+        let rejected = String(repeating: "😀", count: 64) // 256 UTF-8 bytes
+
+        #expect(accepted.count == 63)
+        #expect(accepted.utf8.count == 252)
+        #expect(InputValidator.validatePrivateMessage(accepted) == accepted)
+        #expect(InputValidator.validatePrivateMessage(rejected) == nil)
+    }
+
+    @Test func publicMessageUsesOne16000ByteContract() {
+        let accepted = String(repeating: "a", count: InputValidator.Limits.maxPublicMessageBytes)
+        let rejected = accepted + "b"
+
+        #expect(InputValidator.validatePublicMessage(accepted) == accepted)
+        #expect(InputValidator.validatePublicMessage(rejected) == nil)
+    }
+
+    @Test func messageValidationTrimsBeforeMeasuringAndSending() {
+        #expect(InputValidator.validatePrivateMessage("  hello  ") == "hello")
+        #expect(InputValidator.validatePublicMessage("  hello  ") == "hello")
+    }
+
     // MARK: - Nickname Validation Tests
 
     @Test func validNicknameIsAccepted() throws {

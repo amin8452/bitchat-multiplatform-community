@@ -230,7 +230,8 @@ final class Conversation: ObservableObject, Identifiable {
 
     // MARK: Internals
 
-    static func shouldSkipStatusUpdate(current: DeliveryStatus, new: DeliveryStatus) -> Bool {
+    static func shouldSkipStatusUpdate(current: DeliveryStatus?, new: DeliveryStatus) -> Bool {
+        guard let current else { return false }
         if current == new { return true }
 
         // Never downgrade to a weaker delivery state. Ordering of certainty:
@@ -252,10 +253,6 @@ final class Conversation: ObservableObject, Identifiable {
         case (.carried, .sent), (.carried, .sending):
             return true
         case (.sent, .sending):
-            return true
-        case (_, .notSentYet):
-            // .notSentYet is the pre-transport initial state; once a message
-            // has any real status, resetting to it is always a downgrade.
             return true
         default:
             return false

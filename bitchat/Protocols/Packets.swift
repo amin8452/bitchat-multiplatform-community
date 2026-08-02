@@ -240,6 +240,9 @@ struct AuthenticatedPeerStatePacket: Equatable {
 }
 
 struct PrivateMessagePacket {
+    static let maxMessageIDBytes = Int(UInt8.max)
+    static let maxContentBytes = Int(UInt8.max)
+
     let messageID: String
     let content: String
 
@@ -253,13 +256,19 @@ struct PrivateMessagePacket {
         data.reserveCapacity(2 + min(messageID.count, 255) + 2 + min(content.count, 255))
 
         // TLV for messageID
-        guard let messageIDData = messageID.data(using: .utf8), messageIDData.count <= 255 else { return nil }
+        guard let messageIDData = messageID.data(using: .utf8),
+              messageIDData.count <= Self.maxMessageIDBytes else {
+            return nil
+        }
         data.append(TLVType.messageID.rawValue)
         data.append(UInt8(messageIDData.count))
         data.append(messageIDData)
 
         // TLV for content
-        guard let contentData = content.data(using: .utf8), contentData.count <= 255 else { return nil }
+        guard let contentData = content.data(using: .utf8),
+              contentData.count <= Self.maxContentBytes else {
+            return nil
+        }
         data.append(TLVType.content.rawValue)
         data.append(UInt8(contentData.count))
         data.append(contentData)

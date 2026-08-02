@@ -27,6 +27,60 @@ struct MessageRouterTests {
     }
 
     @Test @MainActor
+    func sendPrivate_rejectsContentThatCannotFitTheWirePacket() async {
+        let peerID = PeerID(str: "0000000000000027")
+        let transport = MockTransport()
+        let router = MessageRouter(transports: [transport])
+
+        router.sendPrivate(
+            String(repeating: "😀", count: 64),
+            to: peerID,
+            recipientNickname: "Peer",
+            messageID: "oversized-pm"
+        )
+
+        transport.reachablePeers.insert(peerID)
+        router.flushOutbox(for: peerID)
+
+        #expect(transport.sentPrivateMessages.isEmpty)
+    }
+
+    @Test @MainActor
+    func restoredOutboxDropsLegacyMessagesThatCannotBeEncoded() {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("router-invalid-outbox-\(UUID().uuidString).sealed")
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let peerID = PeerID(str: "0000000000000028")
+        let store = MessageOutboxStore(keychain: MockKeychain(), fileURL: fileURL)
+        let timestamp = Date()
+        store.save([
+            peerID: [
+                MessageOutboxStore.QueuedMessage(
+                    content: String(repeating: "a", count: 256),
+                    nickname: "Peer",
+                    messageID: "legacy-oversized",
+                    timestamp: timestamp
+                ),
+                MessageOutboxStore.QueuedMessage(
+                    content: "valid",
+                    nickname: "Peer",
+                    messageID: "valid",
+                    timestamp: timestamp
+                )
+            ]
+        ])
+
+        let transport = MockTransport()
+        transport.reachablePeers.insert(peerID)
+        let router = MessageRouter(transports: [transport], outboxStore: store)
+        router.flushOutbox(for: peerID)
+
+        #expect(transport.sentPrivateMessages.map(\.messageID) == ["valid"])
+        #expect(store.load()[peerID]?.map(\.messageID) == ["valid"])
+    }
+
+    @Test @MainActor
     func sendPrivate_queuesThenFlushesWhenReachable() async {
         let peerID = PeerID(str: "0000000000000002")
         let transport = MockTransport()

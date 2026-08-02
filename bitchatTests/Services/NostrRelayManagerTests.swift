@@ -1921,6 +1921,67 @@ final class NostrRelayManagerTests: XCTestCase {
     }
 }
 
+final class InboundFrameRouterTests: XCTestCase {
+    func testPerRelayByteBudgetRejectsAdditionalBacklog() {
+        let router = InboundFrameRouter()
+        defer { router.finishAll() }
+        XCTAssertTrue(router.startPipeline(for: "wss://one.example") { _ in Task {} })
+
+        let frameData = Data(
+            repeating: 0x41,
+            count: TransportConfig.nostrInboundMaxFrameBytes
+        )
+        let frame = InboundFrame(message: .data(frameData))
+        let acceptedFrameCount =
+            TransportConfig.nostrInboundPerRelayBufferBytes / frame.byteCount
+
+        for _ in 0..<acceptedFrameCount {
+            XCTAssertTrue(router.yield(frame, to: "wss://one.example"))
+        }
+
+        XCTAssertEqual(
+            router.bufferedByteCountForTesting,
+            TransportConfig.nostrInboundPerRelayBufferBytes
+        )
+        XCTAssertFalse(
+            router.yield(
+                InboundFrame(message: .data(Data([0x42]))),
+                to: "wss://one.example"
+            )
+        )
+    }
+
+    func testGlobalByteBudgetBoundsSeveralRelays() {
+        let router = InboundFrameRouter()
+        defer { router.finishAll() }
+        let frameData = Data(
+            repeating: 0x41,
+            count: TransportConfig.nostrInboundMaxFrameBytes
+        )
+        let frame = InboundFrame(message: .data(frameData))
+        let relayCount =
+            TransportConfig.nostrInboundGlobalBufferBytes /
+            TransportConfig.nostrInboundPerRelayBufferBytes
+        let framesPerRelay =
+            TransportConfig.nostrInboundPerRelayBufferBytes / frame.byteCount
+
+        for relayIndex in 0..<relayCount {
+            let relay = "wss://relay-\(relayIndex).example"
+            XCTAssertTrue(router.startPipeline(for: relay) { _ in Task {} })
+            for _ in 0..<framesPerRelay {
+                XCTAssertTrue(router.yield(frame, to: relay))
+            }
+        }
+
+        XCTAssertEqual(
+            router.bufferedByteCountForTesting,
+            TransportConfig.nostrInboundGlobalBufferBytes
+        )
+        XCTAssertTrue(router.startPipeline(for: "wss://overflow.example") { _ in Task {} })
+        XCTAssertFalse(router.yield(frame, to: "wss://overflow.example"))
+    }
+}
+
 @MainActor
 private struct RelayManagerTestContext {
     let manager: NostrRelayManager

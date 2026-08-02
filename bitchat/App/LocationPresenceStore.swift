@@ -36,7 +36,6 @@ final class LocationPresenceStore: ObservableObject {
             return
         }
 
-        let nickname = nickname.normalizedNickname
         let key = pubkeyHex.lowercased()
         if geoNicknames[key] != nil {
             geoNicknames[key] = nickname
@@ -65,7 +64,7 @@ final class LocationPresenceStore: ObservableObject {
             let lower = key.lowercased()
             guard seen.insert(lower).inserted else { continue }
             ordered.append(lower)
-            normalized[lower] = value.normalizedNickname
+            normalized[lower] = value
         }
         if ordered.count > geoNicknameCapacity {
             let kept = Array(ordered.suffix(geoNicknameCapacity))
