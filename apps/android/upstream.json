@@ -1,0 +1,6 @@
+{
+  "repository": "https://github.com/permissionlesstech/bitchat-android.git",
+  "commit": "49753ccb888531bfc413431e7002b0776a8268f0",
+  "checkoutDirectory": "android-app",
+  "contract": "protocol-conformance/bitchat-wire-v1.json"
+}
