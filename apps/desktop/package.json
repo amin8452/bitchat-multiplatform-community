@@ -1,0 +1,27 @@
+{
+  "name": "bitchat-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Additive Windows desktop gateway for the BitChat portable web core.",
+  "author": {
+    "name": "BitChat Community Contributors"
+  },
+  "license": "Unlicense",
+  "main": "main.cjs",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "prepare:runtime": "npm --prefix ../../web-preview run build && node scripts/prepare-runtime.mjs && node scripts/prepare-native-radio.mjs",
+    "start": "npm run prepare:runtime && electron .",
+    "test": "node --test tests/*.test.mjs",
+    "test:radio": "node scripts/smoke-native-radio.cjs",
+    "package:windows": "npm run prepare:runtime && npm run package:windows:prepared",
+    "package:windows:prepared": "electron-packager . bitchat-desktop --platform=win32 --arch=x64 --out=dist --overwrite --prune=true --win32metadata.CompanyName=\"BitChat Community Contributors\" --win32metadata.ProductName=\"BitChat Desktop Community Preview\" --win32metadata.FileDescription=\"Unofficial experimental BitChat client for Windows\" --extra-resource=runtime/native-windows --extra-resource=runtime/web-preview --ignore=^/dist --ignore=^/tests --ignore=^/scripts --ignore=^/native-windows --ignore=^/installer\\.iss$ --ignore=^/runtime/native-windows --ignore=^/runtime/web-preview",
+    "installer:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer.ps1"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.0.4",
+    "electron": "43.2.0"
+  }
+}
