@@ -33,7 +33,7 @@ jobs:
       - run: |
           npm --prefix web-preview ci
           npm --prefix apps/desktop ci
-      - uses: github/codeql-action/analyze@e60ea984bd3baa95954f2856bcf24f9eaba46637 # v3
+      - uses: github/codeql-action/analyze@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
 
   csharp:
     name: C# Windows radio
@@ -49,4 +49,4 @@ jobs:
           languages: csharp
           build-mode: manual
       - run: dotnet build apps/desktop/native-windows/Bitchat.Windows.Radio.csproj --configuration Release
-      - uses: github/codeql-action/analyze@e60ea984bd3baa95954f2856bcf24f9eaba46637 # v3
+      - uses: github/codeql-action/analyze@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
