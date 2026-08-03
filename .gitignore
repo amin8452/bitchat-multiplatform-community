@@ -69,6 +69,27 @@ __pycache__/
 
 ## Cache
 .cache/
+web-preview/.runtime/
+web-preview/node_modules/
+web-preview/dist/
+apps/desktop/node_modules/
+apps/desktop/runtime/
+apps/desktop/dist/
+apps/desktop/native-windows/bin/
+apps/desktop/native-windows/obj/
+apps/android/dist/
+.external/
+release-assets/
+
+# Signing keys and local environment secrets
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.jks
+*.keystore
+signing.properties
 
 # Local build results
 .Result*/
