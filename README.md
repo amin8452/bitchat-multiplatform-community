@@ -1,3 +1,12 @@
+> [!IMPORTANT]
+> **Unofficial community multiplatform preview.** This repository combines the
+> original Apple source, a pinned official Android source, and an experimental
+> Windows Desktop feature. It is under active development, is not endorsed as
+> an official upstream release, and must not be presented as fully audited or
+> feature-complete. See [official sources and attribution](UPSTREAM.md).
+> The supplied Apple workspace also differs from its official history anchor;
+> review the [upstream difference audit](docs/UPSTREAM-DIFF-AUDIT.md).
+
 <img width="256" height="256" alt="icon_128x128@2x" src="https://github.com/user-attachments/assets/90133f83-b4f6-41c6-aab9-25d0859d2a47" />
 
 ## bitchat
@@ -6,9 +15,16 @@ A decentralized peer-to-peer messaging app with dual transport architecture: loc
 
 [bitchat.free](http://bitchat.free)
 
-📲 [App Store](https://apps.apple.com/us/app/bitchat-mesh/id6748219622)
+### Official upstream downloads
 
-📲 [Play Store](https://play.google.com/store/apps/details?id=com.bitchat.droid)
+📲 [Official App Store release](https://apps.apple.com/us/app/bitchat-mesh/id6748219622)
+
+📲 [Official Play Store release](https://play.google.com/store/apps/details?id=com.bitchat.droid)
+
+Community-built Android and Windows binaries are published only through this
+repository's **GitHub Releases** page. A release is a preview until its signed
+artifacts pass the physical test gate in
+[`docs/RELEASING-PLATFORMS.md`](docs/RELEASING-PLATFORMS.md).
 
 ### Getting a copy you can trust
 
@@ -33,6 +49,11 @@ This project is released into the public domain. See the [LICENSE](LICENSE) file
 - **Emergency Wipe**: Triple-tap to instantly clear all data
 - **Performance Optimizations**: LZ4 message compression, adaptive battery modes, and optimized networking
 
+Additive Windows desktop and Android integration are documented in
+[`docs/PLATFORM-FEATURES.md`](docs/PLATFORM-FEATURES.md). These features are
+kept outside the original Apple source tree and share a wire-level conformance
+contract instead of duplicating transport logic.
+
 ## [Technical Architecture](https://deepwiki.com/permissionlesstech/bitchat)
 
 BitChat uses a **hybrid messaging architecture** with two complementary transport layers:
@@ -51,7 +72,7 @@ BitChat uses a **hybrid messaging architecture** with two complementary transpor
 
 - **Global Reach**: Connect with users worldwide via internet relays
 - **Location Channels**: Geographic chat rooms using geohash coordinates
-- **440+ Relay Network**: Distributed across the globe for reliability
+- **290+ Relay Network**: Distributed across the globe for reliability
 - **BitChat Private Envelopes**: App-specific encrypted private messages over Nostr relays
 - **Ephemeral Keys**: Fresh cryptographic identity per geohash area
 
@@ -159,6 +180,46 @@ project, configuration, or entitlement files.
 `just clean` removes only `.DerivedData/` and `.build/`. It does not invoke Git
 or restore tracked files, so uncommitted work is preserved. `just test` runs the
 SwiftPM suite and `just test-ios` runs the iPhone 17 simulator suite.
+
+### Windows interface preview
+
+The native SwiftUI application still requires macOS and Xcode. A responsive,
+browser-only interface preview is available for visual testing on Windows:
+
+```powershell
+cd web-preview
+npm install
+npm start
+```
+
+You can also double-click `web-preview\start-preview.cmd`.
+
+Open `http://127.0.0.1:4173` in a browser. The local Node.js server provides
+real-time presence, public and private messages, multi-window test identities,
+image transfer and persistent local history. Use **Settings → Open** to launch
+another participant. Optional adapters in **Settings** can also connect Edge
+or Chrome to a native BitChat peer through Web Bluetooth, establish compatible
+Noise XX sessions, and use Nostr for public geohash traffic or BitChat private
+envelopes. Browser BLE is central-only, so a native device remains the mesh
+entry point.
+
+The Web feature keeps the native code untouched and uses a reusable portable
+core for input limits, `BitchatMessage` semantics, delivery status,
+deduplication and rate limiting. Its boundaries and native parity mapping are
+documented in `web-preview/ARCHITECTURE.md`.
+
+For a native Windows BLE node instead of the central-only browser preview, use
+the additive Electron host in `apps/desktop`. It advertises the BitChat GATT
+service through a native Windows sidecar and reuses the same portable packet,
+Noise, relay and Nostr logic. The pinned official Android build is prepared by
+`apps/android`; see `docs/PLATFORM-FEATURES.md` for scope and validation status.
+Contribution and prerelease instructions live in `CONTRIBUTING.md` and
+`docs/RELEASING-PLATFORMS.md`. Generated installers and APKs belong in GitHub
+Release assets, not in the source tree.
+
+The community project is actively seeking contributors. See the
+[roadmap](ROADMAP.md), [team roles](TEAM.md), [contribution guide](CONTRIBUTING.md)
+and [preview announcement rules](docs/COMMUNITY-PREVIEW.md).
 
 ## Localization
 

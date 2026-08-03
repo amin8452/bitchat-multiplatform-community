@@ -1,0 +1,41 @@
+name: Community feature proposal
+description: Propose a scoped improvement for the community preview.
+title: "[Feature]: "
+labels: [enhancement, needs-triage]
+body:
+  - type: dropdown
+    attributes:
+      label: Area
+      options:
+        - Windows Desktop
+        - Android build integration
+        - Portable Web core
+        - Protocol conformance
+        - Security and privacy
+        - Release engineering
+        - Accessibility and localization
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Problem
+      description: Describe the user or interoperability problem, not only the desired implementation.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Proposed outcome
+      description: Explain observable behavior, limits, compatibility, and security considerations.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Upstream relationship
+      description: Link relevant official Apple/Android behavior, issue, protocol value, or release when applicable.
+  - type: checkboxes
+    attributes:
+      label: Scope confirmation
+      options:
+        - label: I will not describe relay-only support as complete feature parity.
+          required: true
