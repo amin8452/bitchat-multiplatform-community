@@ -113,7 +113,7 @@ jobs:
         run: |
           $sdkManager = Get-ChildItem "$env:ANDROID_SDK_ROOT\cmdline-tools" -Filter sdkmanager.bat -File -Recurse | Select-Object -First 1
           if (-not $sdkManager) { throw "sdkmanager.bat is unavailable" }
-          1..10 | ForEach-Object { 'y' } | & $sdkManager.FullName 'platforms;android-37' 'build-tools;37.0.0' 'platform-tools'
+          1..10 | ForEach-Object { 'y' } | & $sdkManager.FullName 'platforms;android-37.0' 'build-tools;37.0.0' 'platform-tools'
           if ($LASTEXITCODE -ne 0) { throw "Android SDK installation failed" }
       - name: Build signed release APK
         shell: pwsh
