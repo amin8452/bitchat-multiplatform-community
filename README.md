@@ -1,229 +1,333 @@
+# BitChat Multiplatform Community Preview
+
+An independent, community-maintained workspace that extends the BitChat
+ecosystem with an experimental Windows client, a reusable Web core, a browser
+preview, and reproducible Android integration while preserving the original
+Apple source and its upstream attribution.
+
 > [!IMPORTANT]
-> **Unofficial community multiplatform preview.** This repository combines the
-> original Apple source, a pinned official Android source, and an experimental
-> Windows Desktop feature. It is under active development, is not endorsed as
-> an official upstream release, and must not be presented as fully audited or
-> feature-complete. See [official sources and attribution](UPSTREAM.md).
-> The supplied Apple workspace also differs from its official history anchor;
-> review the [upstream difference audit](docs/UPSTREAM-DIFF-AUDIT.md).
+> This is an **unofficial community preview**. It is not maintained, endorsed,
+> or distributed by the official BitChat maintainers. The complete
+> multiplatform distribution has not received an independent security audit,
+> does not yet provide full feature parity, and must not be presented as
+> production-ready.
 
-<img width="256" height="256" alt="icon_128x128@2x" src="https://github.com/user-attachments/assets/90133f83-b4f6-41c6-aab9-25d0859d2a47" />
+[Community releases](https://github.com/amin8452/bitchat-multiplatform-community/releases)
+| [Platform matrix](docs/PLATFORM-FEATURES.md)
+| [Roadmap](ROADMAP.md)
+| [Official sources](UPSTREAM.md)
+| [Contributing](CONTRIBUTING.md)
 
-## bitchat
+## What this project adds
 
-A decentralized peer-to-peer messaging app with dual transport architecture: local Bluetooth mesh networks for offline communication and internet-based Nostr protocol for global reach. No accounts, no phone numbers, no central servers. It's the side-groupchat.
+The community work is additive: platform-specific hosts live beside the Apple
+application instead of replacing it. Reusable protocol behavior is shared at
+the wire-contract and portable-core boundaries.
 
-[bitchat.free](http://bitchat.free)
+| Community component | Location | Purpose |
+| --- | --- | --- |
+| Portable Web core | `web-preview/src/` | Shared message validation, packet handling, Noise sessions, Nostr adapters, relay policy and media limits |
+| Windows Desktop host | `apps/desktop/` | Electron interface with a native .NET Bluetooth LE and DPAPI sidecar |
+| Browser preview | `web-preview/` | Responsive local multi-user testing and optional browser Bluetooth/Nostr adapters |
+| Android build integration | `apps/android/` | Reproducible Windows scripts around an exact official Android source revision |
+| Android source pin | `android-app/` | Unmodified official Kotlin client included as a Git submodule |
+| Shared protocol contract | `protocol-conformance/` | Reviewed packet, message and compatibility values used by cross-platform tests |
+| Platform delivery tooling | `.github/workflows/` | Validation, security scanning, provenance and signed prerelease workflows |
 
-### Official upstream downloads
+The main additions follow small platform ports rather than a new universal app
+framework. Bluetooth access and secure key storage remain native to each host,
+while packet encoding, limits and interoperability rules are reused.
 
-📲 [Official App Store release](https://apps.apple.com/us/app/bitchat-mesh/id6748219622)
+## Platform status
 
-📲 [Official Play Store release](https://play.google.com/store/apps/details?id=com.bitchat.droid)
+| Platform | Implementation | Current status |
+| --- | --- | --- |
+| iOS / macOS | Swift and SwiftUI source based on the official Apple project | Native reference implementation; requires macOS and Xcode |
+| Android | Official Kotlin client pinned at `49753ccb888531bfc413431e7002b0776a8268f0` | Native application; community scripts build the verified source without rewriting it |
+| Windows 10/11 x64 | Community Electron host plus native .NET BLE/DPAPI sidecar | Experimental preview; real interoperability depends on the Bluetooth adapter and driver |
+| Web | Portable JavaScript core and browser interface | Development and testing preview; not a production native client |
 
-Community-built Android and Windows binaries are published only through this
-repository's **GitHub Releases** page. A release is a preview until its signed
-artifacts pass the physical test gate in
-[`docs/RELEASING-PLATFORMS.md`](docs/RELEASING-PLATFORMS.md).
+### Important capability limits
 
-### Getting a copy you can trust
+- Windows supports public and private text, Noise XX sessions, receipts,
+  Nostr, QR identity verification, files, optimized photos and recorded voice
+  notes through the shared transport pipeline.
+- Windows can safely relay several newer packet families, but its interface
+  does not yet implement live push-to-talk, group management, boards, prekeys
+  or courier-storage workflows.
+- The pinned Android client has native messaging, Noise, Nostr, files and voice
+  features, but it does not contain every newer message type found in the
+  current Apple source.
+- A browser can connect as a Bluetooth LE central in a compatible Chromium
+  browser, but it cannot advertise the BitChat peripheral service. A native
+  peer is therefore required as its mesh entry point.
+- Windows-to-Android Bluetooth interoperability must be verified on physical
+  devices. An emulator or local loopback smoke test cannot prove radio
+  compatibility.
 
-Install from the App Store, or build from source you have verified. A compiled build from anywhere else cannot be verified — see [Verifying bitchat](docs/VERIFYING-A-BUILD.md) for how to check source against the per-release hash manifest, and for what to do if that is the only build you can get.
+See the [complete parity and security matrix](docs/PLATFORM-FEATURES.md) before
+describing or distributing a build.
 
-This matters more than it usually would: this repository has been the target of takedown demands, and when a repository or releases page disappears, mirrors appear that nobody can check.
+## Architecture
 
-## License
+```text
+                         official Apple source
+                         bitchat/ + Xcode project
+                                   |
+                    protocol-conformance/bitchat-wire-v1.json
+                                   |
+                         portable Web core
+                           web-preview/src
+                         /                 \
+             browser preview          Windows Desktop
+             BLE central only         Electron renderer
+                                             |
+                                  native .NET sidecar
+                                  BLE peripheral + DPAPI
 
-This project is released into the public domain. See the [LICENSE](LICENSE) file for details.
+             official Android source (pinned Git submodule)
+                              android-app/
+                                  |
+                    community build/release scripts
+                            apps/android/
+```
 
-## Features
+This structure avoids copying protocol constants into every host and keeps
+native responsibilities behind narrow interfaces. More detail is available in
+the [Web architecture](web-preview/ARCHITECTURE.md) and
+[platform feature documentation](docs/PLATFORM-FEATURES.md).
 
-- **Dual Transport Architecture**: Bluetooth mesh for offline + Nostr protocol for internet-based messaging
-- **Location-Based Channels**: Geographic chat rooms using geohash coordinates over global Nostr relays
-- **Intelligent Message Routing**: Automatically chooses best transport (Bluetooth → Nostr fallback)
-- **Decentralized Mesh Network**: Automatic peer discovery and multi-hop message relay over Bluetooth LE
-- **Privacy First**: No accounts, no phone numbers, no servers. Note that the mesh does use a persistent per-device identifier derived from your identity key — see [the whitepaper](WHITEPAPER.md) on identity and metadata for what a nearby radio can observe
-- **Private Message End-to-End Encryption**: [Noise Protocol](https://noiseprotocol.org) for mesh, BitChat private envelopes for Nostr fallback
-- **IRC-Style Commands**: Familiar `/slap`, `/msg`, `/who` style interface
-- **Universal App**: Native support for iOS and macOS
-- **Emergency Wipe**: Triple-tap to instantly clear all data
-- **Performance Optimizations**: LZ4 message compression, adaptive battery modes, and optimized networking
+## Downloads
 
-Additive Windows desktop and Android integration are documented in
-[`docs/PLATFORM-FEATURES.md`](docs/PLATFORM-FEATURES.md). These features are
-kept outside the original Apple source tree and share a wire-level conformance
-contract instead of duplicating transport logic.
+### Official applications
 
-## [Technical Architecture](https://deepwiki.com/permissionlesstech/bitchat)
+Use the official stores when you want an upstream-supported mobile build:
 
-BitChat uses a **hybrid messaging architecture** with two complementary transport layers:
+- [Official Apple App Store release](https://apps.apple.com/us/app/bitchat-mesh/id6748219622)
+- [Official Google Play release](https://play.google.com/store/apps/details?id=com.bitchat.droid)
 
-### Bluetooth Mesh Network (Offline)
+### Community preview builds
 
-- **Local Communication**: Direct peer-to-peer within Bluetooth range
-- **Multi-hop Relay**: Messages route through nearby devices (max 7 hops)
-- **No Internet Required**: Works completely offline in disaster scenarios
-- **Noise Protocol Encryption**: End-to-end encryption, with forward secrecy for live sessions (store-and-forward mail is sealed without it — see the whitepaper)
-- **Binary Protocol**: Compact packet format optimized for Bluetooth LE constraints
-- **Automatic Discovery**: Peer discovery and connection management
-- **Adaptive Power**: Battery-optimized duty cycling
+Community Android APKs and Windows installers, when available, are published
+only on this repository's
+[GitHub Releases page](https://github.com/amin8452/bitchat-multiplatform-community/releases).
+If no suitable release is present, build from source.
 
-### Nostr Protocol (Internet)
+Treat every `platform-v*` release as a prerelease until its physical test matrix
+is published. A distributable release must include signed binaries, SHA-256
+checksums, source provenance and the corresponding Android GPL source package.
+Debug APKs and unsigned Windows packages are development outputs, not public
+releases. See [release requirements](docs/RELEASING-PLATFORMS.md) and
+[build verification](docs/VERIFYING-A-BUILD.md).
 
-- **Global Reach**: Connect with users worldwide via internet relays
-- **Location Channels**: Geographic chat rooms using geohash coordinates
-- **290+ Relay Network**: Distributed across the globe for reliability
-- **BitChat Private Envelopes**: App-specific encrypted private messages over Nostr relays
-- **Ephemeral Keys**: Fresh cryptographic identity per geohash area
+## Clone the complete source
 
-BitChat's private-envelope format is proprietary and is **not** NIP-17,
-NIP-44, or NIP-59 compatible. It uses Nostr as a relay transport but only
-interoperates with BitChat clients: private payloads travel inside kind-1059
-events whose `v2:`-prefixed content is a BitChat-specific XChaCha20-Poly1305
-construction, not NIP-44 encryption.
+The Android client is a Git submodule. Clone recursively so the pinned official
+source is available:
 
-### Channel Types
+```powershell
+git clone --recurse-submodules https://github.com/amin8452/bitchat-multiplatform-community.git
+cd bitchat-multiplatform-community
+```
 
-#### `mesh #bluetooth`
+For an existing clone:
 
-- **Transport**: Bluetooth Low Energy mesh network
-- **Scope**: Local devices within multi-hop range
-- **Internet**: Not required
-- **Use Case**: Offline communication, protests, disasters, remote areas
+```powershell
+git submodule update --init --recursive
+```
 
-#### Location Channels (`block #dr5rsj7`, `neighborhood #dr5rs`, `country #dr`)
+## Run the Web preview on Windows
 
-- **Transport**: Nostr protocol over internet
-- **Scope**: Geographic areas defined by geohash precision
-  - `block` (7 chars): City block level
-  - `neighborhood` (6 chars): District/neighborhood
-  - `city` (5 chars): City level
-  - `province` (4 chars): State/province
-  - `region` (2 chars): Country/large region
-- **Internet**: Required (connects to Nostr relays)
-- **Use Case**: Location-based community chat, local events, regional discussions
+Requirements: Node.js 20 or newer and a current Edge or Chrome browser for the
+optional Web Bluetooth adapter.
 
-### Direct Message Routing
+```powershell
+cd web-preview
+npm ci
+npm start
+```
 
-Private messages use **intelligent transport selection**:
+Open <http://127.0.0.1:4173>. You can also double-click
+`web-preview\start-preview.cmd`.
 
-1. **Bluetooth First** (preferred when available)
+The local server provides live test participants, public/private conversations,
+images and persistent local history. Browser identities are test identities
+stored in session storage; they are not equivalent to native Keychain or DPAPI
+protection. See the [Web preview guide](web-preview/README.md).
 
-   - Direct connection with established Noise session
-   - Fastest and most private option
+## Run the Windows Desktop preview
 
-2. **Nostr Fallback** (when Bluetooth unavailable)
+Requirements:
 
-   - Uses recipient's Nostr public key
-   - BitChat's app-specific private-envelope encryption
-   - Routes through global relay network
+- Windows 10 or Windows 11 x64;
+- Node.js 22.12 or newer;
+- .NET SDK 8;
+- a Bluetooth LE adapter and driver supporting the required GATT peripheral
+  role.
 
-3. **Smart Queuing** (when neither available)
-   - Messages queued until transport becomes available
-   - Automatic delivery when connection established
+```powershell
+cd apps\desktop
+npm ci
+npm start
+```
 
-For detailed protocol documentation, see the [Technical Whitepaper](WHITEPAPER.md).
+Keep the application open while testing Bluetooth because the radio is not a
+background Windows service.
 
-## Setup
+Create an unsigned portable development build with:
 
-### Option 1: Using Xcode
+```powershell
+npm run package:windows
+```
+
+The executable is generated under
+`apps\desktop\dist\bitchat-desktop-win32-x64\`. Building an installer additionally
+requires Inno Setup 6 and `npm run installer:windows`. Public distribution
+requires Authenticode signing; local output is unsigned by default. See the
+[Desktop guide](apps/desktop/README.md).
+
+## Build the Android application on Windows
+
+Requirements: PowerShell, JDK 21 and Android SDK API 37. The scripts verify and
+build the exact source revision declared in `apps/android/upstream.json`.
+
+From the repository root:
+
+```powershell
+.\apps\android\setup.ps1
+.\apps\android\build-debug.ps1
+```
+
+The universal debug APK is copied to:
+
+```text
+apps/android/dist/bitchat-debug.apk
+```
+
+To install it on an authorized USB-connected phone:
+
+```powershell
+adb devices
+adb install -r .\apps\android\dist\bitchat-debug.apk
+```
+
+A store-installed copy may use a different signing certificate and reject the
+debug APK. Uninstalling the existing application can erase its local data. See
+the [Android build guide](apps/android/README.md) before proceeding.
+
+## Build the Apple application
+
+The iOS/macOS source requires macOS and Xcode:
 
 ```bash
 open bitchat.xcodeproj
 ```
 
-For a signed device build, create your ignored local configuration and replace
-the example team ID with your Apple Developer Team ID:
+For a signed device build, copy `Configs/Local.xcconfig.example` to the ignored
+`Configs/Local.xcconfig` file and configure your Apple Developer Team ID there.
+Do not commit signing identities or provisioning material.
+
+Useful checks include:
 
 ```bash
-cp Configs/Local.xcconfig.example Configs/Local.xcconfig
-```
-
-`Local.xcconfig.example` derives unique app and App Group identifiers from that
-team ID. The entitlement files already reference `$(APP_GROUP_ID)`, so tracked
-project or entitlement files do not need to be edited.
-
-Useful command-line checks from the repository root:
-
-```bash
-# macOS Debug build without signing
-xcodebuild -project bitchat.xcodeproj -scheme "bitchat (macOS)" \
-  -configuration Debug CODE_SIGNING_ALLOWED=NO build
-
-# Full SwiftPM test suite
 swift test
 
-# iOS simulator tests
-xcodebuild -project bitchat.xcodeproj -scheme "bitchat (iOS)" \
-  -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 17' test
+xcodebuild -project bitchat.xcodeproj -scheme "bitchat (macOS)" \
+  -configuration Debug CODE_SIGNING_ALLOWED=NO build
 ```
 
-If `iPhone 17` is unavailable, choose an installed simulator from:
+The package declares iOS 16 and macOS 13 as its minimum platform versions.
 
-```bash
-xcodebuild -showdestinations -project bitchat.xcodeproj -scheme "bitchat (iOS)"
-```
+## Test the community additions
 
-### Option 2: Using `just`
-
-```bash
-brew install just
-just check
-just run
-```
-
-`just build` and `just run` use the current `bitchat (macOS)` scheme and keep
-Xcode output in the ignored `.DerivedData/` directory. They never patch source,
-project, configuration, or entitlement files.
-
-`just clean` removes only `.DerivedData/` and `.build/`. It does not invoke Git
-or restore tracked files, so uncommitted work is preserved. `just test` runs the
-SwiftPM suite and `just test-ios` runs the iPhone 17 simulator suite.
-
-### Windows interface preview
-
-The native SwiftUI application still requires macOS and Xcode. A responsive,
-browser-only interface preview is available for visual testing on Windows:
+Run the portable and Desktop checks on Windows:
 
 ```powershell
-cd web-preview
-npm install
-npm start
+npm --prefix web-preview ci
+npm --prefix web-preview run build
+npm --prefix web-preview test
+
+npm --prefix apps\desktop ci
+npm --prefix apps\desktop run prepare:runtime
+npm --prefix apps\desktop test
 ```
 
-You can also double-click `web-preview\start-preview.cmd`.
+For a physical PC-to-phone test, start both native applications on the same
+production mesh, grant Bluetooth/Nearby permissions, then verify public text,
+private Noise text, receipts, QR verification, images and bounded voice notes
+in both directions. Follow the full
+[physical release gate](docs/RELEASING-PLATFORMS.md#required-release-gate-tests).
 
-Open `http://127.0.0.1:4173` in a browser. The local Node.js server provides
-real-time presence, public and private messages, multi-window test identities,
-image transfer and persistent local history. Use **Settings → Open** to launch
-another participant. Optional adapters in **Settings** can also connect Edge
-or Chrome to a native BitChat peer through Web Bluetooth, establish compatible
-Noise XX sessions, and use Nostr for public geohash traffic or BitChat private
-envelopes. Browser BLE is central-only, so a native device remains the mesh
-entry point.
+## Security model and warnings
 
-The Web feature keeps the native code untouched and uses a reusable portable
-core for input limits, `BitchatMessage` semantics, delivery status,
-deduplication and rate limiting. Its boundaries and native parity mapping are
-documented in `web-preview/ARCHITECTURE.md`.
+- The Windows sidecar generates Noise and Ed25519 private keys natively and
+  protects them with Windows DPAPI for the current user.
+- The Electron renderer uses sandboxing, context isolation, origin checks and
+  ownership checks for radio operations.
+- Private files travel inside authenticated Noise sessions; public files
+  require a valid announced identity and signature.
+- File sizes, fragments, timestamps, duplicates and relay TTL values are
+  bounded by shared policies.
+- Browser-only identities use session storage and provide weaker protection
+  than native storage.
+- Connecting to a Nostr relay exposes the client's IP address to that relay.
+- BitChat private Nostr envelopes are application-specific and are not generic
+  NIP-17, NIP-44 or NIP-59 interoperability.
+- Passing automated protocol tests is not a substitute for an independent
+  security audit.
 
-For a native Windows BLE node instead of the central-only browser preview, use
-the additive Electron host in `apps/desktop`. It advertises the BitChat GATT
-service through a native Windows sidecar and reuses the same portable packet,
-Noise, relay and Nostr logic. The pinned official Android build is prepared by
-`apps/android`; see `docs/PLATFORM-FEATURES.md` for scope and validation status.
-Contribution and prerelease instructions live in `CONTRIBUTING.md` and
-`docs/RELEASING-PLATFORMS.md`. Generated installers and APKs belong in GitHub
-Release assets, not in the source tree.
+Report vulnerabilities privately according to [SECURITY.md](SECURITY.md). Do
+not include private keys, credentials, personal chat data or exploitable
+details in a public issue.
 
-The community project is actively seeking contributors. See the
-[roadmap](ROADMAP.md), [team roles](TEAM.md), [contribution guide](CONTRIBUTING.md)
-and [preview announcement rules](docs/COMMUNITY-PREVIEW.md).
+## Relationship to the official projects
 
-## Localization
+This GitHub repository is standalone and is not registered as a GitHub fork.
+It deliberately preserves upstream history and attribution so changes remain
+reviewable.
 
-- App localizations live in `bitchat/Localizable.xcstrings`.
-- Share extension strings are separate in `bitchatShareExtension/Localization/Localizable.xcstrings`.
-- Prefer keys that describe intent (`app_info.features.offline.title`) and reuse existing ones where possible.
-- Run `xcodebuild -project bitchat.xcodeproj -scheme "bitchat (macOS)" -configuration Debug CODE_SIGNING_ALLOWED=NO build` to compile-check any localization updates.
+- Apple upstream: <https://github.com/permissionlesstech/bitchat>
+- Apple history anchor: official `v1.7.1` tag,
+  `9edb7c26ef7bdcf3bb29e7907b38997f8d5cd0fa`
+- Android upstream: <https://github.com/permissionlesstech/bitchat-android>
+- Android pinned revision: `49753ccb888531bfc413431e7002b0776a8268f0`
+
+The supplied Apple workspace contains tracked differences from its history
+anchor; it is not claimed to be byte-for-byte identical. Review
+[UPSTREAM.md](UPSTREAM.md) and the
+[upstream difference audit](docs/UPSTREAM-DIFF-AUDIT.md) for exact provenance.
+
+## Repository layout
+
+```text
+bitchat/                 Apple application source
+bitchatTests/            Apple and protocol tests
+android-app/             pinned official Android Git submodule
+apps/android/            Android integration and release scripts
+apps/desktop/            community Windows Desktop host
+web-preview/             portable core and browser preview
+protocol-conformance/    shared wire-level contract
+docs/                    architecture, parity, security and release guides
+```
+
+## Contributing
+
+This project is under active development and welcomes focused contributions in
+Windows BLE interoperability, Android/Apple protocol compatibility, security
+review, accessibility, testing, packaging and documentation.
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md), choose an item from the
+[roadmap](ROADMAP.md), and describe the automated and physical devices used for
+validation. Community additions should remain isolated and should reuse the
+shared contract instead of duplicating packet constants or native code.
+
+## License
+
+The repository root and community additions are released under the
+[Unlicense](LICENSE). The pinned Android project and any redistributed Android
+APK remain governed by the upstream GNU GPL v3 license and corresponding-source
+requirements. Third-party dependencies retain their own licenses.
+
+BitChat names, upstream application listings and upstream source links are
+included for identification and attribution. They do not imply official
+endorsement of this community distribution.
