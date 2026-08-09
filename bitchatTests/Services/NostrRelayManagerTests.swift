@@ -1009,20 +1009,15 @@ final class NostrRelayManagerTests: XCTestCase {
         let quietDelivered = await waitUntil(timeout: TestConstants.settleTimeout) { quietDeliveredAfterBusyCount >= 0 }
         XCTAssertTrue(quietDelivered, "relay B's event was never delivered")
 
-        // The signal: B did not have to wait for A's entire backlog. If the two
-        // pipelines were globally serialized, B could only land after all 200 of
-        // A's frames, so busyDeliveredCount would be 200 when B arrived.
+        // The signal: B did not have to wait for A's entire backlog. The
+        // inbound stream is deliberately bounded and uses `.bufferingNewest`,
+        // so this burst may shed old frames instead of draining all 200. The
+        // isolation guarantee is that B lands while A still has work pending.
         XCTAssertLessThan(
             quietDeliveredAfterBusyCount,
             busyEvents.count,
             "relay B was head-of-line blocked behind relay A's backlog"
         )
-
-        // Both relays still drain fully and in order.
-        let allDelivered = await waitUntil(timeout: TestConstants.settleTimeout) {
-            busyDeliveredCount == busyEvents.count
-        }
-        XCTAssertTrue(allDelivered)
     }
 
     func test_receiveEvent_withoutHandlerStillTracksReceivedCount() async throws {
@@ -1925,7 +1920,13 @@ final class InboundFrameRouterTests: XCTestCase {
     func testPerRelayByteBudgetRejectsAdditionalBacklog() {
         let router = InboundFrameRouter()
         defer { router.finishAll() }
-        XCTAssertTrue(router.startPipeline(for: "wss://one.example") { _ in Task {} })
+        // Keep the stream alive without consuming it so this test measures
+        // queued bytes rather than a stream that terminated immediately.
+        var retainedStreams: [AsyncStream<InboundFrame>] = []
+        XCTAssertTrue(router.startPipeline(for: "wss://one.example") { stream in
+            retainedStreams.append(stream)
+            return Task {}
+        })
 
         let frameData = Data(
             repeating: 0x41,
@@ -1949,6 +1950,7 @@ final class InboundFrameRouterTests: XCTestCase {
                 to: "wss://one.example"
             )
         )
+        XCTAssertEqual(retainedStreams.count, 1)
     }
 
     func testGlobalByteBudgetBoundsSeveralRelays() {
@@ -1964,10 +1966,14 @@ final class InboundFrameRouterTests: XCTestCase {
             TransportConfig.nostrInboundPerRelayBufferBytes
         let framesPerRelay =
             TransportConfig.nostrInboundPerRelayBufferBytes / frame.byteCount
+        var retainedStreams: [AsyncStream<InboundFrame>] = []
 
         for relayIndex in 0..<relayCount {
             let relay = "wss://relay-\(relayIndex).example"
-            XCTAssertTrue(router.startPipeline(for: relay) { _ in Task {} })
+            XCTAssertTrue(router.startPipeline(for: relay) { stream in
+                retainedStreams.append(stream)
+                return Task {}
+            })
             for _ in 0..<framesPerRelay {
                 XCTAssertTrue(router.yield(frame, to: relay))
             }
@@ -1979,6 +1985,7 @@ final class InboundFrameRouterTests: XCTestCase {
         )
         XCTAssertTrue(router.startPipeline(for: "wss://overflow.example") { _ in Task {} })
         XCTAssertFalse(router.yield(frame, to: "wss://overflow.example"))
+        XCTAssertEqual(retainedStreams.count, relayCount)
     }
 }
 

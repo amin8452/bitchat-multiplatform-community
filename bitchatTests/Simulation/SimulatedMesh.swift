@@ -50,7 +50,10 @@ final class SimulatedMesh {
         let node = Node(service: service, scheduler: scheduler)
         nodes.append(node)
         neighbors.append([])
-        service.setNickname(nickname)
+        // Install the tap before setNickname: nickname setup force-announces
+        // asynchronously. Missing that packet still advances the production
+        // announce throttle and makes the later discovery round depend on
+        // runner scheduling.
         service._test_onOutboundPacket = { [weak self] packet in
             // Runs on the sender's engine; only buffer here — delivering
             // inline would nest one engine inside another.
@@ -59,6 +62,7 @@ final class SimulatedMesh {
             self.pendingDeliveries.append((from: index, packet: packet))
             self.lock.unlock()
         }
+        service.setNickname(nickname)
         return node
     }
 
@@ -120,8 +124,11 @@ final class SimulatedMesh {
     }
 
     /// Full discovery round: every node announces, traffic settles.
+    /// Reset the wall-clock throttle first so setup-time announces cannot
+    /// swallow this deterministic forced round on a busy CI runner.
     func announceAll() {
         for node in nodes {
+            node.service._test_resetAnnounceThrottle()
             node.service._test_forceAnnounce()
         }
         pump()
